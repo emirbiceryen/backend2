@@ -4,7 +4,6 @@ const auth = require('../middleware/auth');
 const Chat = require('../models/Chat');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
-const firebaseService = require('../services/firebaseService');
 
 // Get all chats for the current user
 router.get('/', auth, async (req, res) => {
@@ -17,8 +16,15 @@ router.get('/', auth, async (req, res) => {
     .sort({ lastMessage: -1 });
 
     // Format chats to include unread count and last message
+    const host = `${req.protocol}://${req.get('host')}`;
     const formattedChats = chats.map(chat => {
       const otherParticipant = chat.participants.find(p => p._id.toString() !== req.user._id.toString());
+      
+      // Format profile image URL
+      const formattedProfileImage = otherParticipant?.profileImage 
+        ? (otherParticipant.profileImage.startsWith('/uploads') ? `${host}${otherParticipant.profileImage}` : otherParticipant.profileImage)
+        : null;
+      
       const unreadCount = chat.messages.filter(msg => 
         msg.sender.toString() !== req.user._id.toString() && !msg.isRead
       ).length;
@@ -26,7 +32,10 @@ router.get('/', auth, async (req, res) => {
 
       return {
         _id: chat._id,
-        otherParticipant,
+        otherParticipant: {
+          ...otherParticipant.toObject(),
+          profileImage: formattedProfileImage
+        },
         unreadCount,
         lastMessage: lastMessage ? {
           content: lastMessage.content,
@@ -91,7 +100,25 @@ router.get('/:userId', auth, async (req, res) => {
       }
     );
 
-    res.json({ success: true, chat });
+    // Format profile image URLs for participants
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedParticipants = chat.participants.map(participant => {
+      const formattedProfileImage = participant.profileImage 
+        ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
+        : null;
+      
+      return {
+        ...participant.toObject(),
+        profileImage: formattedProfileImage
+      };
+    });
+
+    const formattedChat = {
+      ...chat.toObject(),
+      participants: formattedParticipants
+    };
+
+    res.json({ success: true, chat: formattedChat });
   } catch (error) {
     console.error('Error fetching chat:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -140,35 +167,30 @@ router.post('/:userId/message', [
     chat.lastMessage = new Date();
     await chat.save();
 
-    // Send notification to the recipient
-    try {
-      const sender = await User.findById(req.user._id).select('firstName lastName name');
-      const senderName = sender.firstName && sender.lastName 
-        ? `${sender.firstName} ${sender.lastName}` 
-        : sender.name;
-
-      await firebaseService.sendNotificationToUser(
-        userId,
-        'New Message 💬',
-        `${senderName}: ${content.length > 50 ? content.substring(0, 50) + '...' : content}`,
-        {
-          type: 'message',
-          chatId: chat._id.toString(),
-          senderId: req.user._id.toString(),
-          senderName: senderName
-        }
-      );
-    } catch (notificationError) {
-      console.error('Error sending message notification:', notificationError);
-      // Don't fail the message operation if notification fails
-    }
-
     // Populate the updated chat
     const populatedChat = await Chat.findById(chat._id)
       .populate('participants', 'name profileImage')
       .populate('messages.sender', 'name profileImage');
 
-    res.json({ success: true, chat: populatedChat });
+    // Format profile image URLs for participants
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedParticipants = populatedChat.participants.map(participant => {
+      const formattedProfileImage = participant.profileImage 
+        ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
+        : null;
+      
+      return {
+        ...participant.toObject(),
+        profileImage: formattedProfileImage
+      };
+    });
+
+    const formattedChat = {
+      ...populatedChat.toObject(),
+      participants: formattedParticipants
+    };
+
+    res.json({ success: true, chat: formattedChat });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -187,12 +209,19 @@ router.get('/potential/users', auth, async (req, res) => {
       ]
     }).populate('user1 user2', 'name profileImage');
 
+    const host = `${req.protocol}://${req.get('host')}`;
     const potentialUsers = matches.map(match => {
       const otherUser = match.user1._id.toString() === req.user._id.toString() ? match.user2 : match.user1;
+      
+      // Format profile image URL
+      const formattedProfileImage = otherUser.profileImage 
+        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        : null;
+      
       return {
         _id: otherUser._id,
         name: otherUser.name,
-        profileImage: otherUser.profileImage
+        profileImage: formattedProfileImage
       };
     });
 

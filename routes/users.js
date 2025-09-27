@@ -25,8 +25,10 @@ router.put('/hobbies', auth, [
     const { hobbies } = req.body;
     const currentUser = req.user;
 
-    // Check subscription type and enforce limits
-    const isFreeUser = !currentUser.subscriptionType || currentUser.subscriptionType === 'free';
+    // Check if user has active premium subscription
+    const isPremiumActive = currentUser.subscriptionType === 'premium' && 
+      (!currentUser.premiumExpiresAt || new Date(currentUser.premiumExpiresAt) > new Date());
+    const isFreeUser = !isPremiumActive;
     
     if (isFreeUser && hobbies.length > 1) {
       return res.status(400).json({
@@ -84,6 +86,49 @@ router.get('/:id', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+});
+
+// @route   GET /api/users/search
+// @desc    Search users by exact username match
+// @access  Private
+router.get('/search', async (req, res) => {
+  try {
+    console.log('User search request received:', {
+      query: req.query,
+      note: 'Auth middleware disabled for testing'
+    });
+
+    const { username } = req.query;
+    
+    if (!username || username.trim().length < 3) {
+      console.log('Search query too short:', username);
+      return res.status(400).json({
+        success: false,
+        message: 'Username query must be at least 3 characters'
+      });
+    }
+
+    console.log('Searching for exact username match:', username.trim().toLowerCase());
+
+    // Search for exact username match (case-insensitive)
+    const user = await User.findOne({
+      username: username.trim().toLowerCase()
+    })
+    .select('_id name username profileImage averageRating age');
+
+    console.log('Search result:', user ? 'User found' : 'No user found');
+
+    res.json({
+      success: true,
+      users: user ? [user] : [] // Return array with single user or empty array
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during user search'
     });
   }
 });

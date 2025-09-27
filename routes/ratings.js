@@ -21,11 +21,11 @@ router.post('/submit', auth, async (req, res) => {
       });
     }
 
-    // Check if users are matched (mutual status)
+    // Check if users have matched (mutual or ended status)
     const match = await Match.findOne({
       $or: [
-        { user1: raterId, user2: ratedUserId, status: 'mutual' },
-        { user1: ratedUserId, user2: raterId, status: 'mutual' }
+        { user1: raterId, user2: ratedUserId, status: { $in: ['mutual', 'ended'] } },
+        { user1: ratedUserId, user2: raterId, status: { $in: ['mutual', 'ended'] } }
       ]
     });
 
@@ -45,6 +45,17 @@ router.post('/submit', auth, async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'You can only rate users you have matched with' 
+      });
+    }
+
+    // Check if the current user has already rated the other user
+    const isUser1 = match.user1.equals(raterId);
+    const hasRated = isUser1 ? match.ratings.user1Rated : match.ratings.user2Rated;
+    
+    if (hasRated) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'You have already rated this user' 
       });
     }
 
@@ -79,8 +90,16 @@ router.post('/submit', auth, async (req, res) => {
       totalRatings: ratings.length
     });
 
-    // Remove the match from both users' matched lists
-    await Match.findByIdAndDelete(match._id);
+    // Update the match to mark that this user has rated
+    const updateField = isUser1 ? 'ratings.user1Rated' : 'ratings.user2Rated';
+    
+    await Match.findByIdAndUpdate(match._id, {
+      $set: { 
+        [updateField]: true,
+        status: 'ended',
+        lastInteraction: new Date()
+      }
+    });
 
     const response = {
       success: true,
@@ -118,6 +137,47 @@ router.get('/user/:userId', async (req, res) => {
 
   } catch (error) {
     console.error('Error getting user rating:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// Check if a user can rate another user
+router.get('/can-rate/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const raterId = req.user._id;
+
+    // Check if users have matched (mutual or ended status)
+    const match = await Match.findOne({
+      $or: [
+        { user1: raterId, user2: userId, status: { $in: ['mutual', 'ended'] } },
+        { user1: userId, user2: raterId, status: { $in: ['mutual', 'ended'] } }
+      ]
+    });
+
+    if (!match) {
+      return res.json({
+        success: true,
+        canRate: false,
+        reason: 'No match found'
+      });
+    }
+
+    // Check if the current user has already rated the other user
+    const isUser1CanRate = match.user1.equals(raterId);
+    const hasRated = isUser1CanRate ? match.ratings.user1Rated : match.ratings.user2Rated;
+
+    res.json({
+      success: true,
+      canRate: !hasRated,
+      reason: hasRated ? 'Already rated' : 'Can rate'
+    });
+
+  } catch (error) {
+    console.error('Error checking rating eligibility:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 

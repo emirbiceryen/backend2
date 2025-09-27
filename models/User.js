@@ -16,6 +16,16 @@ const userSchema = new mongoose.Schema({
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
+  username: {
+    type: String,
+    required: [true, 'Username is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    minlength: [3, 'Username must be at least 3 characters'],
+    maxlength: [20, 'Username cannot be more than 20 characters'],
+    match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores']
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
@@ -27,13 +37,11 @@ const userSchema = new mongoose.Schema({
   }],
   firstName: {
     type: String,
-    required: [true, 'First name is required'],
     trim: true,
     maxlength: [25, 'First name cannot be more than 25 characters']
   },
   lastName: {
     type: String,
-    required: [true, 'Last name is required'],
     trim: true,
     maxlength: [25, 'Last name cannot be more than 25 characters']
   },
@@ -86,30 +94,26 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  fcmToken: {
-    type: String,
-    default: null
-  },
-  notificationSettings: {
-    likes: {
-      type: Boolean,
-      default: true
-    },
-    messages: {
-      type: Boolean,
-      default: true
-    },
-    events: {
-      type: Boolean,
-      default: true
-    },
-    general: {
-      type: Boolean,
-      default: true
-    }
-  }
+  teams: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team'
+  }],
+  captainOfTeams: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team'
+  }]
 }, {
   timestamps: true
+});
+
+// Split name into firstName and lastName before saving
+userSchema.pre('save', function(next) {
+  if (this.isModified('name') && this.name && !this.firstName && !this.lastName) {
+    const nameParts = this.name.trim().split(' ');
+    this.firstName = nameParts[0] || '';
+    this.lastName = nameParts.slice(1).join(' ') || '';
+  }
+  next();
 });
 
 // Hash password before saving

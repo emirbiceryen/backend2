@@ -42,7 +42,7 @@ const chatRoutes = require('./routes/chat');
 const profileRoutes = require('./routes/profile');
 const ratingRoutes = require('./routes/ratings');
 const subscriptionRoutes = require('./routes/subscription');
-const notificationRoutes = require('./routes/notifications');
+const teamRoutes = require('./routes/teams');
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -54,7 +54,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/subscription', subscriptionRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use('/api/teams', teamRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

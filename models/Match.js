@@ -22,7 +22,7 @@ const matchSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['pending', 'mutual', 'rejected'],
+    enum: ['pending', 'mutual', 'rejected', 'ended'],
     default: 'pending'
   },
   matchedAt: {
@@ -36,6 +36,17 @@ const matchSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  // Track which users have rated each other
+  ratings: {
+    user1Rated: {
+      type: Boolean,
+      default: false
+    },
+    user2Rated: {
+      type: Boolean,
+      default: false
+    }
   }
 }, {
   timestamps: true

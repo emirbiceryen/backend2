@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Hobby = require('../models/Hobby');
+const upload = require('../middleware/upload');
 
 // Get current user's profile
 router.get('/me', auth, async (req, res) => {
@@ -17,6 +18,12 @@ router.get('/me', auth, async (req, res) => {
       });
     }
 
+    // Format profile image URL
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedProfileImage = user.profileImage 
+      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      : null;
+
     res.json({
       success: true,
       user: {
@@ -24,10 +31,11 @@ router.get('/me', auth, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        username: user.username,
         bio: user.bio,
         skills: user.skills,
         hobbies: user.hobbies,
-        profileImage: user.profileImage,
+        profileImage: formattedProfileImage,
         location: user.location,
         age: user.age,
         averageRating: user.averageRating,
@@ -58,6 +66,12 @@ router.get('/user/:userId', async (req, res) => {
       });
     }
 
+    // Format profile image URL
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedProfileImage = user.profileImage 
+      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      : null;
+
     res.json({
       success: true,
       user: {
@@ -67,7 +81,7 @@ router.get('/user/:userId', async (req, res) => {
         bio: user.bio,
         skills: user.skills,
         hobbies: user.hobbies,
-        profileImage: user.profileImage,
+        profileImage: formattedProfileImage,
         location: user.location,
         age: user.age,
         averageRating: user.averageRating,
@@ -85,15 +99,19 @@ router.get('/user/:userId', async (req, res) => {
 });
 
 // Update current user's profile
-router.put('/me', auth, async (req, res) => {
+router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
   try {
+    console.log('=== PROFILE UPDATE DEBUG ===');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    console.log('User ID:', req.user._id);
+    
     const {
       firstName,
       lastName,
       bio,
       skills,
       hobbies,
-      profileImage,
       location,
       age
     } = req.body;
@@ -105,10 +123,21 @@ router.put('/me', auth, async (req, res) => {
     if (bio !== undefined) updateData.bio = bio;
     if (skills !== undefined) updateData.skills = skills;
     if (hobbies !== undefined) {
-      // Check subscription type and enforce limits
-      const isFreeUser = !req.user.subscriptionType || req.user.subscriptionType === 'free';
+      // Handle hobbies from FormData (array) or JSON (array)
+      let hobbiesArray = hobbies;
+      if (typeof hobbies === 'string') {
+        // If it's a single string, convert to array
+        hobbiesArray = [hobbies];
+      } else if (Array.isArray(hobbies)) {
+        hobbiesArray = hobbies;
+      }
       
-      if (isFreeUser && hobbies.length > 1) {
+      // Check if user has active premium subscription
+      const isPremiumActive = req.user.subscriptionType === 'premium' && 
+        (!req.user.premiumExpiresAt || new Date(req.user.premiumExpiresAt) > new Date());
+      const isFreeUser = !isPremiumActive;
+      
+      if (isFreeUser && hobbiesArray.length > 1) {
         return res.status(400).json({
           success: false,
           message: 'Free users can only select 1 hobby. Upgrade to Premium to select multiple hobbies.',
@@ -116,9 +145,18 @@ router.put('/me', auth, async (req, res) => {
         });
       }
       
-      updateData.hobbies = hobbies;
+      updateData.hobbies = hobbiesArray;
     }
-    if (profileImage !== undefined) updateData.profileImage = profileImage;
+    
+    // Handle profile image upload
+    if (req.file) {
+      console.log('File uploaded successfully:', req.file);
+      updateData.profileImage = `/uploads/${req.file.filename}`;
+      console.log('Setting profileImage to:', updateData.profileImage);
+    } else {
+      console.log('No file uploaded');
+    }
+    
     if (location !== undefined) updateData.location = location;
     if (age !== undefined) updateData.age = age;
 
@@ -139,6 +177,15 @@ router.put('/me', auth, async (req, res) => {
       });
     }
 
+    // Format profile image URL
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedProfileImage = user.profileImage 
+      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      : null;
+
+    console.log('Final profileImage in response:', formattedProfileImage);
+    console.log('User profileImage in DB:', user.profileImage);
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
@@ -150,7 +197,7 @@ router.put('/me', auth, async (req, res) => {
         bio: user.bio,
         skills: user.skills,
         hobbies: user.hobbies,
-        profileImage: user.profileImage,
+        profileImage: formattedProfileImage,
         location: user.location,
         age: user.age,
         averageRating: user.averageRating,

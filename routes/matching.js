@@ -55,11 +55,20 @@ router.get('/potential', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
-    // Add hobby names to matches
-    const matchesWithHobbyNames = matchesWithSharedHobbies.map(match => ({
-      ...match,
-      sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId)
-    }));
+    // Add hobby names to matches and format profile images
+    const host = `${req.protocol}://${req.get('host')}`;
+    const matchesWithHobbyNames = matchesWithSharedHobbies.map(match => {
+      // Format profile image URL
+      const formattedProfileImage = match.profileImage 
+        ? (match.profileImage.startsWith('/uploads') ? `${host}${match.profileImage}` : match.profileImage)
+        : null;
+
+      return {
+        ...match,
+        profileImage: formattedProfileImage,
+        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId)
+      };
+    });
 
     console.log('Hobby map:', hobbyMap);
     console.log('First match sharedHobbyNames:', matchesWithHobbyNames[0]?.sharedHobbyNames);
@@ -246,6 +255,8 @@ router.get('/pending', auth, async (req, res) => {
     .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings')
     .sort({ createdAt: -1 });
 
+    console.log(`Found ${allMatches.length} pending matches for user ${req.user._id}`);
+
 
 
     // Filter matches where the other user liked the current user but current user hasn't liked back
@@ -254,11 +265,15 @@ router.get('/pending', auth, async (req, res) => {
       const otherUserHasLiked = match.likedBy.some(userId => userId.equals(otherUserId));
       const currentUserHasLiked = match.likedBy.some(userId => userId.equals(req.user._id));
       
-
+      console.log(`Match ${match._id}: otherUser=${otherUserId}, currentUser=${req.user._id}`);
+      console.log(`likedBy:`, match.likedBy.map(id => id.toString()));
+      console.log(`otherUserHasLiked: ${otherUserHasLiked}, currentUserHasLiked: ${currentUserHasLiked}`);
       
       // Show matches where the other user liked this user, but this user hasn't liked back yet
       return otherUserHasLiked && !currentUserHasLiked;
     });
+
+    console.log(`Filtered to ${pendingMatches.length} pending matches`);
 
 
 
@@ -273,6 +288,7 @@ router.get('/pending', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
+    const host = `${req.protocol}://${req.get('host')}`;
     const formattedPending = pendingMatches.map(match => {
       const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
       const otherUserHobbies = match.user1._id.equals(req.user._id) ? match.user2.hobbies : match.user1.hobbies;
@@ -289,9 +305,17 @@ router.get('/pending', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
 
+      // Format profile image URL
+      const formattedProfileImage = otherUser.profileImage 
+        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        : null;
+
       return {
         id: match._id,
-        user: otherUser,
+        user: {
+          ...otherUser.toObject(),
+          profileImage: formattedProfileImage
+        },
         sharedHobbies: sharedHobbyNames,
         likedAt: match.createdAt
       };
@@ -320,7 +344,7 @@ router.get('/matches', auth, async (req, res) => {
         { user1: req.user._id },
         { user2: req.user._id }
       ],
-      status: 'mutual',
+      status: { $in: ['mutual', 'ended'] },
       isActive: true
     })
     .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings')
@@ -338,30 +362,45 @@ router.get('/matches', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
-    const formattedMatches = matches.map(match => {
-      const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
-      const otherUserHobbies = match.user1._id.equals(req.user._id) ? match.user2.hobbies : match.user1.hobbies;
-      
-      // Calculate shared hobbies
-      const currentUserHobbyIds = req.user.hobbies || [];
-      const otherUserHobbiesArray = otherUserHobbies || [];
-      
-      // Find shared hobby IDs
-      const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
-        otherUserHobbiesArray.includes(hobbyId)
-      );
-      
-      // Get hobby names
-      const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
-      
-      return {
-        id: match._id,
-        user: otherUser,
-        sharedHobbies: sharedHobbyNames,
-        matchedAt: match.matchedAt,
-        lastInteraction: match.lastInteraction
-      };
-    });
+    const host = `${req.protocol}://${req.get('host')}`;
+    const formattedMatches = matches
+      .filter(match => {
+        // Filter out matches where both users have already rated each other
+        const bothRated = match.ratings && match.ratings.user1Rated && match.ratings.user2Rated;
+        return !bothRated;
+      })
+      .map(match => {
+        const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
+        const otherUserHobbies = match.user1._id.equals(req.user._id) ? match.user2.hobbies : match.user1.hobbies;
+        
+        // Calculate shared hobbies
+        const currentUserHobbyIds = req.user.hobbies || [];
+        const otherUserHobbiesArray = otherUserHobbies || [];
+        
+        // Find shared hobby IDs
+        const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
+          otherUserHobbiesArray.includes(hobbyId)
+        );
+        
+        // Get hobby names
+        const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
+        
+        // Format profile image URL
+        const formattedProfileImage = otherUser.profileImage 
+          ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+          : null;
+        
+        return {
+          id: match._id,
+          user: {
+            ...otherUser.toObject(),
+            profileImage: formattedProfileImage
+          },
+          sharedHobbies: sharedHobbyNames,
+          matchedAt: match.matchedAt,
+          lastInteraction: match.lastInteraction
+        };
+      });
 
     res.json({
       success: true,

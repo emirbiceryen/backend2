@@ -5,7 +5,6 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const upload = require('../middleware/upload');
-const firebaseService = require('../services/firebaseService');
 
 // Get all posts with optional filtering
 router.get('/posts', auth, async (req, res) => {
@@ -24,10 +23,13 @@ router.get('/posts', auth, async (req, res) => {
       .limit(parseInt(limit))
       .populate('authorId', 'name email firstName lastName profileImage');
 
+    console.log('Found posts:', posts.length);
+    console.log('First post author:', posts[0]?.authorId);
+
     const total = await Post.countDocuments(query);
 
     const host = `${req.protocol}://${req.get('host')}`;
-    const formattedPosts = posts.map((p) => {
+    const formattedPosts = await Promise.all(posts.map(async (p) => {
       const po = p.toObject();
       const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
 
@@ -40,19 +42,66 @@ router.get('/posts', auth, async (req, res) => {
       const rawAvatar = po.authorAvatar || (populatedAuthor ? populatedAuthor.profileImage : undefined);
       const authorAvatar = rawAvatar
         ? (rawAvatar.startsWith('/uploads') ? `${host}${rawAvatar}` : rawAvatar)
-        : undefined;
+        : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName || 'User')}&background=3C0270&color=ffffff&size=44`;
 
       const media = Array.isArray(po.media)
         ? po.media.map((m) => (typeof m === 'string' && m.startsWith('/uploads') ? `${host}${m}` : m))
         : po.media;
+
+      // Add participants data for events
+      let participants = [];
+      if (po.isEvent && po.eventDetails && po.eventDetails.applications) {
+        // Get all approved participant user IDs
+        const approvedUserIds = po.eventDetails.applications
+          .filter(app => app.status === 'approved')
+          .map(app => app.userId);
+        
+        // Fetch full user data for participants
+        const User = require('../models/User');
+        const participantUsers = await User.find({ _id: { $in: approvedUserIds } })
+          .select('firstName lastName name username profileImage bio age location averageRating totalRatings');
+        
+        participants = participantUsers.map(user => {
+          // Format profile image URL
+          let profileImageUrl = user.profileImage;
+          if (profileImageUrl && !profileImageUrl.startsWith('http')) {
+            // If it's a local file path, construct the full URL
+            profileImageUrl = `${req.protocol}://${req.get('host')}${profileImageUrl}`;
+          }
+          
+          
+          return {
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            name: user.name,
+            username: user.username,
+            profileImage: profileImageUrl,
+            bio: user.bio,
+            age: user.age,
+            location: user.location,
+            averageRating: user.averageRating,
+            totalRatings: user.totalRatings
+          };
+        });
+      }
 
       return {
         ...po,
         authorName,
         authorAvatar,
         media,
+        eventDetails: po.isEvent && po.eventDetails ? {
+          ...po.eventDetails,
+          participants
+        } : po.eventDetails
       };
-    });
+    }));
+
+    console.log('Formatted posts:', formattedPosts.map(p => ({ 
+      authorName: p.authorName, 
+      authorAvatar: p.authorAvatar 
+    })));
 
     res.json({
       success: true,
@@ -72,13 +121,13 @@ router.get('/posts', auth, async (req, res) => {
 // Create a new post
 router.post('/posts', auth, upload.array('media', 5), [
   body('title').optional().trim().isLength({ max: 200 }).withMessage('Title must be less than 200 characters'),
-  body('content').trim().isLength({ min: 1 }).withMessage('Content is required'),
-  body('isPoll').optional().isBoolean(),
-  body('pollOptions').optional().isArray().withMessage('Poll options must be an array'),
-  body('isEvent').optional().isBoolean(),
-  body('eventDetails.date').optional().trim().isLength({ min: 1 }).withMessage('Event date is required'),
-  body('eventDetails.location').optional().trim().isLength({ min: 1 }).withMessage('Event location is required'),
-  body('eventDetails.maxParticipants').optional().isInt({ min: 1 }).withMessage('Max participants must be at least 1')
+  body('content').optional().trim().isLength({ min: 1 }).withMessage('Content must be at least 1 character if provided'),
+  body('isPoll').optional(),
+  body('pollOptions').optional(),
+  body('isEvent').optional(),
+  body('eventDetails.date').optional(),
+  body('eventDetails.location').optional(),
+  body('eventDetails.maxParticipants').optional()
 ], async (req, res) => {
   try {
     console.log('Received post data:', req.body);
@@ -87,7 +136,11 @@ router.post('/posts', auth, upload.array('media', 5), [
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       console.log('Validation errors:', errors.array());
-      return res.status(400).json({ success: false, message: errors.array()[0].msg });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Validation failed', 
+        errors: errors.array() 
+      });
     }
 
     const { title, content, isPoll, pollOptions, isSingleChoice, isEvent, eventDetails } = req.body;
@@ -96,10 +149,33 @@ router.post('/posts', auth, upload.array('media', 5), [
     const parsedIsPoll = isPoll === 'true';
     const parsedIsSingleChoice = isSingleChoice === 'true';
     const parsedIsEvent = isEvent === 'true';
+    
+    console.log('Raw isEvent value:', isEvent);
+    console.log('Parsed isEvent value:', parsedIsEvent);
+    console.log('Event details:', eventDetails);
+    console.log('Request body keys:', Object.keys(req.body));
+
+    // Auto-generate content for event posts if empty
+    let finalContent = content;
+    if (parsedIsEvent && (!content || content.trim() === '')) {
+      // Get event details for auto-content generation
+      let eventData = eventDetails;
+      if (!eventData) {
+        eventData = {
+          topic: req.body['eventDetails[topic]'] || 'Event',
+          location: req.body['eventDetails[location]'] || 'Location TBD',
+          date: req.body['eventDetails[date]'] || new Date().toISOString()
+        };
+      }
+      
+      finalContent = `Event: ${eventData.topic || 'Event'} at ${eventData.location || 'Location TBD'}`;
+      console.log('Auto-generated content for event:', finalContent);
+    }
 
     // Use provided title or auto-generate from content
-    const finalTitle = title || (content.length > 50 ? content.substring(0, 50) + '...' : content);
+    const finalTitle = title || (finalContent && finalContent.length > 50 ? finalContent.substring(0, 50) + '...' : finalContent);
     console.log('Final title:', finalTitle);
+    console.log('Final content:', finalContent);
 
     // Process uploaded files
     let mediaUrls = [];
@@ -112,7 +188,7 @@ router.post('/posts', auth, upload.array('media', 5), [
       authorId: req.user._id,
       authorName: req.user.name,
       title: finalTitle,
-      content,
+      content: finalContent,
       category: 'general',
       tags: [],
       media: mediaUrls.length > 0 ? mediaUrls : undefined,
@@ -131,23 +207,94 @@ router.post('/posts', auth, upload.array('media', 5), [
       }));
     }
 
-    if (parsedIsEvent && eventDetails) {
-      postData.eventDetails = {
-        date: new Date(eventDetails.date),
-        location: eventDetails.location,
-        maxParticipants: parseInt(eventDetails.maxParticipants) || 10,
-        currentParticipants: 0,
-        applications: []
-      };
+    if (parsedIsEvent) {
+      // Handle both JSON and FormData formats
+      let eventData = eventDetails;
+      if (!eventData) {
+        // Try to get from nested FormData format
+        eventData = {
+          date: req.body['eventDetails[date]'],
+          location: req.body['eventDetails[location]'],
+          topic: req.body['eventDetails[topic]'],
+          maxParticipants: req.body['eventDetails[maxParticipants]']
+        };
+      }
+      
+      console.log('Event data from request:', eventData);
+      console.log('Request body keys:', Object.keys(req.body));
+      console.log('eventDetails[date]:', req.body['eventDetails[date]']);
+      console.log('eventDetails[location]:', req.body['eventDetails[location]']);
+      
+      console.log('Creating event details:', eventData);
+      if (eventData && eventData.date && eventData.location) {
+        // Parse the date properly - handle DD.MM.YYYY HH.mm format
+        let parsedDate;
+        try {
+          // Try to parse the date format DD.MM.YYYY HH.mm
+          const dateStr = eventData.date;
+          if (dateStr.includes('.')) {
+            // Convert DD.MM.YYYY HH.mm to YYYY-MM-DDTHH:mm format
+            const [datePart, timePart] = dateStr.split(' ');
+            const [day, month, year] = datePart.split('.');
+            const [hour, minute] = timePart.split('.');
+            const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:00`;
+            parsedDate = new Date(isoDate);
+          } else {
+            parsedDate = new Date(eventData.date);
+          }
+          
+          // Validate the date
+          if (isNaN(parsedDate.getTime())) {
+            console.log('Invalid date, using current date');
+            parsedDate = new Date();
+          }
+        } catch (error) {
+          console.log('Date parsing error, using current date:', error.message);
+          parsedDate = new Date();
+        }
+        
+        postData.eventDetails = {
+          date: parsedDate,
+          location: eventData.location,
+          topic: eventData.topic || '',
+          maxParticipants: parseInt(eventData.maxParticipants) || 10,
+          currentParticipants: 0,
+          applications: []
+        };
+        console.log('Event details created:', postData.eventDetails);
+      } else {
+        console.log('Event details missing or invalid:', eventData);
+      }
     }
 
     const post = new Post(postData);
     console.log('Post object created:', post);
+    console.log('Post isEvent:', post.isEvent);
+    console.log('Post eventDetails:', post.eventDetails);
     console.log('Post category:', post.category);
-    console.log('Post validation state:', post.validateSync());
     
-    await post.save();
-    console.log('Post saved successfully with ID:', post._id);
+    // Validate the post
+    const validationErrors = post.validateSync();
+    if (validationErrors) {
+      console.log('Post validation errors:', validationErrors);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Post validation failed', 
+        errors: validationErrors 
+      });
+    }
+    
+    try {
+      await post.save();
+      console.log('Post saved successfully with ID:', post._id);
+    } catch (saveError) {
+      console.error('Error saving post:', saveError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to save post', 
+        error: saveError.message 
+      });
+    }
 
     const host = `${req.protocol}://${req.get('host')}`;
     const po = post.toObject();
@@ -162,7 +309,7 @@ router.post('/posts', auth, upload.array('media', 5), [
     const rawAvatar = author ? author.profileImage : undefined;
     const authorAvatar = rawAvatar
       ? (rawAvatar.startsWith('/uploads') ? `${host}${rawAvatar}` : rawAvatar)
-      : undefined;
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName || 'User')}&background=3C0270&color=ffffff&size=44`;
 
     res.status(201).json({
       success: true,
@@ -171,7 +318,8 @@ router.post('/posts', auth, upload.array('media', 5), [
     });
   } catch (error) {
     console.error('Error creating post:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
@@ -238,31 +386,6 @@ router.post('/posts/:id/like', auth, async (req, res) => {
       post.likedBy.push(req.user._id);
       post.likes += 1;
       await post.save();
-
-      // Send notification to post author (if not the same user)
-      if (post.authorId.toString() !== req.user._id.toString()) {
-        try {
-          const liker = await User.findById(req.user._id).select('firstName lastName name');
-          const likerName = liker.firstName && liker.lastName 
-            ? `${liker.firstName} ${liker.lastName}` 
-            : liker.name;
-
-          await firebaseService.sendNotificationToUser(
-            post.authorId,
-            'New Like! ❤️',
-            `${likerName} liked your post`,
-            {
-              type: 'like',
-              postId: post._id.toString(),
-              senderId: req.user._id.toString(),
-              senderName: likerName
-            }
-          );
-        } catch (notificationError) {
-          console.error('Error sending like notification:', notificationError);
-          // Don't fail the like operation if notification fails
-        }
-      }
 
       res.json({
         success: true,
@@ -557,6 +680,8 @@ router.post('/posts/:id/event/join', auth, async (req, res) => {
     post.eventDetails.applications.push({
       userId: req.user._id,
       userName: req.user.name,
+      username: req.user.username,
+      userProfileImage: req.user.profileImage,
       status: 'approved' // Auto-approve for now
     });
 
