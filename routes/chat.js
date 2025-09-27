@@ -16,7 +16,9 @@ router.get('/', auth, async (req, res) => {
     .sort({ lastMessage: -1 });
 
     // Format chats to include unread count and last message
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedChats = chats.map(chat => {
       const otherParticipant = chat.participants.find(p => p._id.toString() !== req.user._id.toString());
       
@@ -101,7 +103,9 @@ router.get('/:userId', auth, async (req, res) => {
     );
 
     // Format profile image URLs for participants
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedParticipants = chat.participants.map(participant => {
       const formattedProfileImage = participant.profileImage 
         ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
@@ -173,7 +177,9 @@ router.post('/:userId/message', [
       .populate('messages.sender', 'name profileImage');
 
     // Format profile image URLs for participants
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedParticipants = populatedChat.participants.map(participant => {
       const formattedProfileImage = participant.profileImage 
         ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
@@ -209,7 +215,9 @@ router.get('/potential/users', auth, async (req, res) => {
       ]
     }).populate('user1 user2', 'name profileImage');
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const potentialUsers = matches.map(match => {
       const otherUser = match.user1._id.toString() === req.user._id.toString() ? match.user2 : match.user1;
       

@@ -56,7 +56,9 @@ router.get('/potential', auth, async (req, res) => {
     });
 
     // Add hobby names to matches and format profile images
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const matchesWithHobbyNames = matchesWithSharedHobbies.map(match => {
       // Format profile image URL
       const formattedProfileImage = match.profileImage 
@@ -288,7 +290,9 @@ router.get('/pending', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedPending = pendingMatches.map(match => {
       const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
       const otherUserHobbies = match.user1._id.equals(req.user._id) ? match.user2.hobbies : match.user1.hobbies;
@@ -362,7 +366,9 @@ router.get('/matches', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedMatches = matches
       .filter(match => {
         // Filter out matches where both users have already rated each other

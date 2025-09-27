@@ -68,7 +68,9 @@ router.post('/signup', [
     await user.populate('hobbies', 'name');
 
     // Format profile image URL
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = user.profileImage 
       ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
       : null;
@@ -137,7 +139,9 @@ router.post('/login', [
     await user.populate('hobbies', 'name');
 
     // Format profile image URL
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = user.profileImage 
       ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
       : null;
@@ -168,7 +172,9 @@ router.post('/login', [
 router.get('/me', auth, async (req, res) => {
   try {
     // Format profile image URL
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = req.user.profileImage 
       ? (req.user.profileImage.startsWith('/uploads') ? `${host}${req.user.profileImage}` : req.user.profileImage)
       : null;

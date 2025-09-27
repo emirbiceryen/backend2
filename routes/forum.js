@@ -28,7 +28,9 @@ router.get('/posts', auth, async (req, res) => {
 
     const total = await Post.countDocuments(query);
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const formattedPosts = await Promise.all(posts.map(async (p) => {
       const po = p.toObject();
       const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
@@ -296,7 +298,9 @@ router.post('/posts', auth, upload.array('media', 5), [
       });
     }
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const po = post.toObject();
     const media = Array.isArray(po.media)
       ? po.media.map((m) => (typeof m === 'string' && m.startsWith('/uploads') ? `${host}${m}` : m))
@@ -333,7 +337,9 @@ router.get('/posts/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    const host = `${req.protocol}://${req.get('host')}`;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
     const po = post.toObject();
     const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
     const authorName = po.authorName || (populatedAuthor ? (
