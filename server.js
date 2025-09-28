@@ -2,9 +2,18 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const socketIo = require('socket.io');
 require('dotenv').config({ path: './config.env' });
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: true,
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -44,6 +53,73 @@ const ratingRoutes = require('./routes/ratings');
 const subscriptionRoutes = require('./routes/subscription');
 const teamRoutes = require('./routes/teams');
 
+// WebSocket connection management
+const connectedUsers = new Map();
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // User joins with their user ID
+  socket.on('join', (userId) => {
+    connectedUsers.set(userId, socket.id);
+    socket.userId = userId;
+    console.log(`User ${userId} joined with socket ${socket.id}`);
+  });
+
+  // Handle matching requests
+  socket.on('send_match_request', (data) => {
+    const { targetUserId, requesterId, requesterName, requesterImage } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('new_match_request', {
+        requesterId,
+        requesterName,
+        requesterImage,
+        timestamp: new Date()
+      });
+      console.log(`Match request sent from ${requesterId} to ${targetUserId}`);
+    }
+  });
+
+  // Handle match acceptance
+  socket.on('accept_match', (data) => {
+    const { targetUserId, accepterId, accepterName } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('match_accepted', {
+        accepterId,
+        accepterName,
+        timestamp: new Date()
+      });
+      console.log(`Match accepted by ${accepterId} for ${targetUserId}`);
+    }
+  });
+
+  // Handle match rejection
+  socket.on('reject_match', (data) => {
+    const { targetUserId, rejecterId } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('match_rejected', {
+        rejecterId,
+        timestamp: new Date()
+      });
+      console.log(`Match rejected by ${rejecterId} for ${targetUserId}`);
+    }
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+      console.log(`User ${socket.userId} disconnected`);
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -79,7 +155,8 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`WebSocket server is ready for connections`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 }); 
