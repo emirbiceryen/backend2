@@ -13,11 +13,25 @@ router.get('/potential', auth, async (req, res) => {
   try {
     const currentUser = req.user;
     
-    // Get users who have hobbies and are not the current user
-
+    // Get rejected user IDs for this user
+    const rejectedMatches = await Match.find({
+      $or: [
+        { user1: currentUser._id },
+        { user2: currentUser._id }
+      ],
+      status: 'rejected'
+    });
     
+    const rejectedUserIds = rejectedMatches.map(match => 
+      match.user1.equals(currentUser._id) ? match.user2 : match.user1
+    );
+    
+    // Get users who have hobbies, are not the current user, and haven't been rejected
     const potentialMatches = await User.find({
-      _id: { $ne: currentUser._id },
+      _id: { 
+        $ne: currentUser._id,
+        $nin: rejectedUserIds
+      },
       hobbies: { $exists: true, $ne: [] }
     })
     .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings')
