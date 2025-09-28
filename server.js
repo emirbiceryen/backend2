@@ -111,6 +111,48 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle new message
+  socket.on('send_message', (data) => {
+    const { targetUserId, message, senderId, senderName, senderImage } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('new_message', {
+        message,
+        senderId,
+        senderName,
+        senderImage,
+        timestamp: new Date()
+      });
+      console.log(`Message sent from ${senderId} to ${targetUserId}`);
+    }
+  });
+
+  // Handle typing indicator
+  socket.on('typing_start', (data) => {
+    const { targetUserId, senderId } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('user_typing', {
+        senderId,
+        isTyping: true
+      });
+    }
+  });
+
+  socket.on('typing_stop', (data) => {
+    const { targetUserId, senderId } = data;
+    const targetSocketId = connectedUsers.get(targetUserId);
+    
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('user_typing', {
+        senderId,
+        isTyping: false
+      });
+    }
+  });
+
   // Handle disconnect
   socket.on('disconnect', () => {
     if (socket.userId) {

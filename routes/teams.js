@@ -6,7 +6,6 @@ const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
-const { SPORT_HOBBY_MAP } = require('../constants/sports');
 
 // Configure multer for team profile image uploads
 const storage = multer.diskStorage({
@@ -114,8 +113,6 @@ router.post('/', [
     // Populate team data for response
     await team.populate('captain', 'firstName lastName name profileImage averageRating totalRatings age');
     await team.populate('members', 'firstName lastName name profileImage averageRating totalRatings age');
-    await team.populate('captain.hobbies', 'name');
-    await team.populate('members.hobbies', 'name');
 
     res.status(201).json({
       success: true,
@@ -153,8 +150,6 @@ router.get('/', auth, async (req, res) => {
     })
     .populate('captain', 'firstName lastName name profileImage averageRating totalRatings age')
     .populate('members', 'firstName lastName name profileImage averageRating totalRatings age')
-    .populate('captain.hobbies', 'name')
-    .populate('members.hobbies', 'name')
     .sort({ createdAt: -1 });
 
     res.json({
@@ -186,8 +181,6 @@ router.get('/my-teams', auth, async (req, res) => {
     })
     .populate('captain', 'firstName lastName name profileImage averageRating totalRatings age')
     .populate('members', 'firstName lastName name profileImage averageRating totalRatings age')
-    .populate('captain.hobbies', 'name')
-    .populate('members.hobbies', 'name')
     .sort({ createdAt: -1 });
 
     res.json({
@@ -213,10 +206,6 @@ router.get('/:id', auth, async (req, res) => {
     const team = await Team.findById(req.params.id)
       .populate('captain', 'firstName lastName name profileImage averageRating totalRatings age bio location')
       .populate('members', 'firstName lastName name profileImage averageRating totalRatings age bio location');
-    
-    // Populate hobbies for captain and members
-    await team.populate('captain.hobbies', 'name');
-    await team.populate('members.hobbies', 'name');
 
     if (!team) {
       return res.status(404).json({
@@ -262,22 +251,18 @@ router.post('/:id/join', auth, async (req, res) => {
     }
 
     // Check if user has the required hobby
-    const user = await User.findById(req.user._id).populate('hobbies', 'name');
-    const requiredHobbies = SPORT_HOBBY_MAP[team.sport];
-    
-    // Check if user has any of the required hobbies (handle both string names and populated objects)
-    const hasRequiredHobby = requiredHobbies.some(requiredHobby => 
-      user.hobbies.some(userHobby => {
-        // Handle both string hobby names and populated hobby objects
-        const hobbyName = typeof userHobby === 'string' ? userHobby : userHobby.name;
-        return hobbyName === requiredHobby;
-      })
-    );
-    
-    if (!hasRequiredHobby) {
+    const user = await User.findById(req.user._id);
+    const sportHobbyMap = {
+      'football': 'Football (Soccer)',
+      'basketball': 'Basketball',
+      'volleyball': 'Volleyball'
+    };
+
+    const requiredHobby = sportHobbyMap[team.sport];
+    if (!user.hobbies.includes(requiredHobby)) {
       return res.status(400).json({
         success: false,
-        message: `You must have ${team.sport} as a hobby to join this team`
+        message: `You must have ${requiredHobby} as a hobby to join this team`
       });
     }
 
@@ -301,8 +286,6 @@ router.post('/:id/join', auth, async (req, res) => {
     // Populate team data for response
     await team.populate('captain', 'firstName lastName name profileImage averageRating totalRatings age');
     await team.populate('members', 'firstName lastName name profileImage averageRating totalRatings age');
-    await team.populate('captain.hobbies', 'name');
-    await team.populate('members.hobbies', 'name');
 
     res.json({
       success: true,
@@ -400,7 +383,7 @@ router.post('/:id/add-member', auth, [
     }
 
     // Check if user exists
-    const userToAdd = await User.findById(userId).populate('hobbies', 'name');
+    const userToAdd = await User.findById(userId);
     if (!userToAdd) {
       return res.status(404).json({
         success: false,
@@ -409,21 +392,17 @@ router.post('/:id/add-member', auth, [
     }
 
     // Check if user has the required hobby
-    const requiredHobbies = SPORT_HOBBY_MAP[team.sport];
-    
-    // Check if user has any of the required hobbies (handle both string names and populated objects)
-    const hasRequiredHobby = requiredHobbies.some(requiredHobby => 
-      userToAdd.hobbies.some(userHobby => {
-        // Handle both string hobby names and populated hobby objects
-        const hobbyName = typeof userHobby === 'string' ? userHobby : userHobby.name;
-        return hobbyName === requiredHobby;
-      })
-    );
-    
-    if (!hasRequiredHobby) {
+    const sportHobbyMap = {
+      'football': 'Football (Soccer)',
+      'basketball': 'Basketball',
+      'volleyball': 'Volleyball'
+    };
+
+    const requiredHobby = sportHobbyMap[team.sport];
+    if (!userToAdd.hobbies.includes(requiredHobby)) {
       return res.status(400).json({
         success: false,
-        message: `User must have ${team.sport} as a hobby to join this team`
+        message: `User must have ${requiredHobby} as a hobby to join this team`
       });
     }
 
@@ -447,8 +426,6 @@ router.post('/:id/add-member', auth, [
     // Populate team data for response
     await team.populate('captain', 'firstName lastName name profileImage averageRating totalRatings age');
     await team.populate('members', 'firstName lastName name profileImage averageRating totalRatings age');
-    await team.populate('captain.hobbies', 'name');
-    await team.populate('members.hobbies', 'name');
 
     res.json({
       success: true,
@@ -458,164 +435,6 @@ router.post('/:id/add-member', auth, [
 
   } catch (error) {
     console.error('Error adding member:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-});
-
-// @route   GET /api/teams/:id/search-users
-// @desc    Search users by username for adding to team
-// @access  Private
-router.get('/:id/search-users', auth, async (req, res) => {
-  try {
-    const { q } = req.query;
-    const team = await Team.findById(req.params.id);
-
-    if (!team) {
-      return res.status(404).json({
-        success: false,
-        message: 'Team not found'
-      });
-    }
-
-    // Check if user is the captain
-    if (team.captain.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the team captain can search for members'
-      });
-    }
-
-    if (!q || q.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: 'Search query must be at least 2 characters'
-      });
-    }
-
-    // Find users by username (case-insensitive partial match)
-    const users = await User.find({
-      username: { $regex: new RegExp(q, 'i') },
-      _id: { $nin: team.members } // Exclude current team members
-    })
-    .select('username firstName lastName name profileImage averageRating totalRatings age hobbies')
-    .populate('hobbies', 'name')
-    .limit(10);
-
-    res.json({
-      success: true,
-      users
-    });
-
-  } catch (error) {
-    console.error('Error searching users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-      error: error.message
-    });
-  }
-});
-
-// @route   POST /api/teams/:id/add-member-by-username
-// @desc    Add a member to team by username (captain only)
-// @access  Private
-router.post('/:id/add-member-by-username', auth, [
-  body('username').trim().isLength({ min: 3, max: 20 }).withMessage('Username must be between 3 and 20 characters')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-
-    const { username } = req.body;
-    const team = await Team.findById(req.params.id);
-
-    if (!team) {
-      return res.status(404).json({
-        success: false,
-        message: 'Team not found'
-      });
-    }
-
-    // Check if user is the captain
-    if (team.captain.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the team captain can add members'
-      });
-    }
-
-    // Find user by username (case-insensitive exact match)
-    const userToAdd = await User.findOne({ 
-      username: { $regex: new RegExp(`^${username}$`, 'i') } 
-    }).populate('hobbies', 'name');
-
-    if (!userToAdd) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found with that username'
-      });
-    }
-
-    // Check if user has the required hobby
-    const requiredHobbies = SPORT_HOBBY_MAP[team.sport];
-    
-    // Check if user has any of the required hobbies (handle both string names and populated objects)
-    const hasRequiredHobby = requiredHobbies.some(requiredHobby => 
-      userToAdd.hobbies.some(userHobby => {
-        // Handle both string hobby names and populated hobby objects
-        const hobbyName = typeof userHobby === 'string' ? userHobby : userHobby.name;
-        return hobbyName === requiredHobby;
-      })
-    );
-    
-    if (!hasRequiredHobby) {
-      return res.status(400).json({
-        success: false,
-        message: `User must have ${team.sport} as a hobby to join this team`
-      });
-    }
-
-    // Check if user can join
-    const canJoin = team.canUserJoin(userToAdd._id);
-    if (!canJoin.canJoin) {
-      return res.status(400).json({
-        success: false,
-        message: canJoin.reason
-      });
-    }
-
-    // Add user to team
-    await team.addMember(userToAdd._id);
-
-    // Add team to user's teams
-    await User.findByIdAndUpdate(userToAdd._id, {
-      $addToSet: { teams: team._id }
-    });
-
-    // Populate team data for response
-    await team.populate('captain', 'firstName lastName name profileImage averageRating totalRatings age');
-    await team.populate('members', 'firstName lastName name profileImage averageRating totalRatings age');
-    await team.populate('captain.hobbies', 'name');
-    await team.populate('members.hobbies', 'name');
-
-    res.json({
-      success: true,
-      message: 'Member added successfully',
-      team
-    });
-
-  } catch (error) {
-    console.error('Error adding member by username:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -671,9 +490,7 @@ router.put('/:id', [
       { new: true }
     )
     .populate('captain', 'firstName lastName name profileImage averageRating totalRatings age')
-    .populate('members', 'firstName lastName name profileImage averageRating totalRatings age')
-    .populate('captain.hobbies', 'name')
-    .populate('members.hobbies', 'name');
+    .populate('members', 'firstName lastName name profileImage averageRating totalRatings age');
 
     res.json({
       success: true,
