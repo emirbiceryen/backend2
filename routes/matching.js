@@ -435,4 +435,58 @@ router.get('/matches', auth, async (req, res) => {
   }
 });
 
+// Get user's matches (for dashboard)
+router.get('/matches', auth, async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app/uploads/'
+      : `${req.protocol}://${req.get('host')}/uploads/`;
+
+    // Find confirmed matches
+    const matches = await Match.find({
+      $or: [
+        { user1: currentUser._id },
+        { user2: currentUser._id }
+      ],
+      status: 'matched'
+    })
+    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings')
+    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings')
+    .sort({ matchedAt: -1 });
+
+    // Format matches
+    const formattedMatches = matches.map(match => {
+      const otherUser = match.user1._id.toString() === currentUser._id.toString() 
+        ? match.user2 
+        : match.user1;
+      
+      // Format profile image URL
+      const formattedProfileImage = otherUser.profileImage 
+        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        : null;
+      
+      return {
+        id: match._id,
+        user: {
+          ...otherUser.toObject(),
+          profileImage: formattedProfileImage
+        },
+        matchedAt: match.matchedAt || match.createdAt
+      };
+    });
+
+    res.json({
+      success: true,
+      matches: formattedMatches
+    });
+  } catch (error) {
+    console.error('Get user matches error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 module.exports = router; 

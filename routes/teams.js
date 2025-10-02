@@ -555,4 +555,51 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Get user's teams
+router.get('/user', auth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Find teams where user is captain or member
+    const teams = await Team.find({
+      $or: [
+        { captain: userId },
+        { members: userId }
+      ],
+      isActive: true
+    })
+    .populate('captain', 'firstName lastName name username profileImage')
+    .populate('members', 'firstName lastName name username profileImage')
+    .sort({ createdAt: -1 });
+
+    // Format teams with additional info
+    const formattedTeams = teams.map(team => {
+      const teamObj = team.toObject();
+      
+      // Add current member count
+      teamObj.currentMemberCount = team.members ? team.members.length : 0;
+      
+      // Add available spots
+      teamObj.availableSpots = (team.maxMembers || 5) - teamObj.currentMemberCount;
+      
+      // Add user role
+      teamObj.userRole = team.captain._id.toString() === userId.toString() ? 'captain' : 'member';
+      
+      return teamObj;
+    });
+
+    res.json({
+      success: true,
+      teams: formattedTeams
+    });
+  } catch (error) {
+    console.error('Error fetching user teams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
