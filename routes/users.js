@@ -61,78 +61,6 @@ router.put('/hobbies', auth, [
   }
 });
 
-// @route   GET /api/users/:id
-// @desc    Get user profile by ID
-// @access  Private
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('hobbies', 'name category icon');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
-// @route   GET /api/users/search
-// @desc    Search users by exact username match
-// @access  Private
-router.get('/search', async (req, res) => {
-  try {
-    console.log('User search request received:', {
-      query: req.query,
-      note: 'Auth middleware disabled for testing'
-    });
-
-    const { username } = req.query;
-    
-    if (!username || username.trim().length < 3) {
-      console.log('Search query too short:', username);
-      return res.status(400).json({
-        success: false,
-        message: 'Username query must be at least 3 characters'
-      });
-    }
-
-    console.log('Searching for exact username match:', username.trim().toLowerCase());
-
-    // Search for exact username match (case-insensitive)
-    const user = await User.findOne({
-      username: username.trim().toLowerCase()
-    })
-    .select('_id name username profileImage averageRating age');
-
-    console.log('Search result:', user ? 'User found' : 'No user found');
-
-    res.json({
-      success: true,
-      users: user ? [user] : [] // Return array with single user or empty array
-    });
-  } catch (error) {
-    console.error('User search error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during user search'
-    });
-  }
-});
-
 // @route   GET /api/users/recent-activities
 // @desc    Get user's recent activities for dashboard
 // @access  Private
@@ -263,5 +191,77 @@ function getRelativeTime(date) {
     return new Date(date).toLocaleDateString();
   }
 }
+
+// @route   GET /api/users/:id
+// @desc    Get user profile by ID
+// @access  Private
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('hobbies', 'name category icon');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// @route   GET /api/users/search
+// @desc    Search users by exact username match
+// @access  Private
+router.get('/search', async (req, res) => {
+  try {
+    console.log('User search request received:', {
+      query: req.query,
+      note: 'Auth middleware disabled for testing'
+    });
+
+    const { username } = req.query;
+    
+    if (!username || username.trim().length < 3) {
+      console.log('Search query too short:', username);
+      return res.status(400).json({
+        success: false,
+        message: 'Username query must be at least 3 characters'
+      });
+    }
+
+    console.log('Searching for exact username match:', username.trim().toLowerCase());
+
+    // Search for exact username match (case-insensitive)
+    const user = await User.findOne({
+      username: username.trim().toLowerCase()
+    })
+    .select('_id name username profileImage averageRating age');
+
+    console.log('Search result:', user ? 'User found' : 'No user found');
+
+    res.json({
+      success: true,
+      users: user ? [user] : [] // Return array with single user or empty array
+    });
+  } catch (error) {
+    console.error('User search error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during user search'
+    });
+  }
+});
 
 module.exports = router; 
