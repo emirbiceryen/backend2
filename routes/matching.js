@@ -274,8 +274,8 @@ router.get('/pending', auth, async (req, res) => {
       ],
       status: 'pending'
     })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings')
+    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies hobbySkillLevels')
+    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies hobbySkillLevels')
     .sort({ createdAt: -1 });
 
     console.log(`Found ${allMatches.length} pending matches for user ${req.user._id}`);
@@ -330,6 +330,12 @@ router.get('/pending', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
 
+      // Get skill level for the first shared hobby
+      const firstSharedHobbyId = sharedHobbyIds[0];
+      const sharedHobbySkillLevel = otherUser.hobbySkillLevels && firstSharedHobbyId 
+        ? otherUser.hobbySkillLevels.get(firstSharedHobbyId) 
+        : null;
+
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
         ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
@@ -339,7 +345,8 @@ router.get('/pending', auth, async (req, res) => {
         id: match._id,
         user: {
           ...otherUser.toObject(),
-          profileImage: formattedProfileImage
+          profileImage: formattedProfileImage,
+          sharedHobbySkillLevel: sharedHobbySkillLevel
         },
         sharedHobbies: sharedHobbyNames,
         likedAt: match.createdAt
