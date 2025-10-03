@@ -34,7 +34,7 @@ router.get('/potential', auth, async (req, res) => {
       },
       hobbies: { $exists: true, $ne: [] }
     })
-    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings')
+    .select('firstName lastName name bio location age hobbies hobbySkillLevels profileImage averageRating totalRatings')
     .limit(10);
     
 
@@ -79,10 +79,17 @@ router.get('/potential', auth, async (req, res) => {
         ? (match.profileImage.startsWith('/uploads') ? `${host}${match.profileImage}` : match.profileImage)
         : null;
 
+      // Get skill level for the first shared hobby (the one that will be displayed)
+      const firstSharedHobbyId = match.sharedHobbies[0];
+      const sharedHobbySkillLevel = match.hobbySkillLevels && firstSharedHobbyId 
+        ? match.hobbySkillLevels.get(firstSharedHobbyId) 
+        : null;
+
       return {
         ...match,
         profileImage: formattedProfileImage,
-        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId)
+        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId),
+        sharedHobbySkillLevel: sharedHobbySkillLevel
       };
     });
 

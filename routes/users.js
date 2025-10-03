@@ -6,11 +6,12 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 // @route   PUT /api/users/hobbies
-// @desc    Update user hobbies
+// @desc    Update user hobbies and skill levels
 // @access  Private
 router.put('/hobbies', auth, [
   body('hobbies').isArray().withMessage('Hobbies must be an array'),
-  body('hobbies.*').isString().withMessage('Each hobby must be a string')
+  body('hobbies.*').isString().withMessage('Each hobby must be a string'),
+  body('hobbySkillLevels').optional().isObject().withMessage('Hobby skill levels must be an object')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -22,7 +23,7 @@ router.put('/hobbies', auth, [
       });
     }
 
-    const { hobbies } = req.body;
+    const { hobbies, hobbySkillLevels } = req.body;
     const currentUser = req.user;
 
     // Check if user has active premium subscription
@@ -38,12 +39,31 @@ router.put('/hobbies', auth, [
       });
     }
 
+    // Validate skill levels if provided
+    if (hobbySkillLevels) {
+      for (const [hobbyId, skillLevel] of Object.entries(hobbySkillLevels)) {
+        if (typeof skillLevel !== 'number' || skillLevel < 1 || skillLevel > 10) {
+          return res.status(400).json({
+            success: false,
+            message: `Skill level for hobby ${hobbyId} must be a number between 1 and 10`
+          });
+        }
+      }
+    }
+
+    const updateData = { 
+      hobbies,
+      isProfileComplete: hobbies.length > 0
+    };
+
+    // Add hobby skill levels if provided
+    if (hobbySkillLevels) {
+      updateData.hobbySkillLevels = hobbySkillLevels;
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { 
-        hobbies,
-        isProfileComplete: hobbies.length > 0
-      },
+      updateData,
       { new: true, runValidators: true }
     ).select('-password');
 

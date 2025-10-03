@@ -35,6 +35,15 @@ const userSchema = new mongoose.Schema({
     type: String,
     ref: 'Hobby'
   }],
+  hobbySkillLevels: {
+    type: Map,
+    of: {
+      type: Number,
+      min: 1,
+      max: 10
+    },
+    default: {}
+  },
   firstName: {
     type: String,
     trim: true,
