@@ -349,9 +349,11 @@ router.get('/notifications', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching notifications:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Error fetching notifications'
+      message: 'Error fetching notifications',
+      error: error.message
     });
   }
 });
