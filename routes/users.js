@@ -96,7 +96,7 @@ router.get('/recent-activities', auth, async (req, res) => {
         { user1: currentUser._id },
         { user2: currentUser._id }
       ],
-      status: 'matched'
+      status: { $in: ['matched', 'mutual'] }
     })
     .populate('user1', 'firstName lastName name')
     .populate('user2', 'firstName lastName name')
