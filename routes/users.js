@@ -296,7 +296,7 @@ router.get('/notifications', auth, async (req, res) => {
     const ForumPost = require('../models/ForumPost');
     const recentPosts = await ForumPost.find({ author: currentUser._id })
       .populate('likes', 'firstName lastName name profileImage')
-      .populate('comments.author', 'firstName lastName name profileImage')
+      .populate('comments.user', 'firstName lastName name profileImage')
       .sort({ createdAt: -1 })
       .limit(10);
 
@@ -322,15 +322,15 @@ router.get('/notifications', auth, async (req, res) => {
 
       // Add comment notifications
       post.comments.forEach(comment => {
-        if (comment.author._id.toString() !== currentUser._id.toString()) {
+        if (comment.user._id.toString() !== currentUser._id.toString()) {
           notifications.push({
             id: `comment_${post._id}_${comment._id}`,
             type: 'comment',
             title: 'Gönderinize Yorum Yaptı',
-            message: `${comment.author.firstName || comment.author.name} paylaştığınız gönderiye yorum yaptı`,
+            message: `${comment.user.firstName || comment.user.name} paylaştığınız gönderiye yorum yaptı`,
             user: {
-              name: comment.author.firstName || comment.author.name,
-              profileImage: comment.author.profileImage
+              name: comment.user.firstName || comment.user.name,
+              profileImage: comment.user.profileImage
             },
             postId: post._id.toString(),
             time: new Date().toLocaleString('tr-TR'),
