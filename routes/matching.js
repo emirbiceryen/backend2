@@ -379,8 +379,8 @@ router.get('/matches', auth, async (req, res) => {
       status: { $in: ['mutual', 'ended'] },
       isActive: true
     })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings')
+    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
+    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
     .sort({ lastInteraction: -1 });
 
     // Fetch hobby names for all users
