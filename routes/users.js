@@ -284,4 +284,96 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// @route   GET /api/users/notifications
+// @desc    Get user's notifications
+// @access  Private
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const currentUser = req.user;
+    const notifications = [];
+
+    // Get recent forum post likes and comments
+    const ForumPost = require('../models/ForumPost');
+    const recentPosts = await ForumPost.find({ author: currentUser._id })
+      .populate('likes', 'firstName lastName name profileImage')
+      .populate('comments.author', 'firstName lastName name profileImage')
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    recentPosts.forEach(post => {
+      // Add like notifications
+      post.likes.forEach(like => {
+        if (like._id.toString() !== currentUser._id.toString()) {
+          notifications.push({
+            id: `like_${post._id}_${like._id}`,
+            type: 'like',
+            title: 'Gönderinizi Beğendi',
+            message: `${like.firstName || like.name} paylaştığınız gönderiyi beğendi`,
+            user: {
+              name: like.firstName || like.name,
+              profileImage: like.profileImage
+            },
+            postId: post._id.toString(),
+            time: new Date().toLocaleString('tr-TR'),
+            read: false
+          });
+        }
+      });
+
+      // Add comment notifications
+      post.comments.forEach(comment => {
+        if (comment.author._id.toString() !== currentUser._id.toString()) {
+          notifications.push({
+            id: `comment_${post._id}_${comment._id}`,
+            type: 'comment',
+            title: 'Gönderinize Yorum Yaptı',
+            message: `${comment.author.firstName || comment.author.name} paylaştığınız gönderiye yorum yaptı`,
+            user: {
+              name: comment.author.firstName || comment.author.name,
+              profileImage: comment.author.profileImage
+            },
+            postId: post._id.toString(),
+            time: new Date().toLocaleString('tr-TR'),
+            read: false
+          });
+        }
+      });
+    });
+
+    // Sort notifications by time (most recent first)
+    notifications.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    res.json({
+      success: true,
+      notifications: notifications.slice(0, 20) // Limit to 20 notifications
+    });
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching notifications'
+    });
+  }
+});
+
+// @route   PUT /api/users/notifications/:id/read
+// @desc    Mark notification as read
+// @access  Private
+router.put('/notifications/:id/read', auth, async (req, res) => {
+  try {
+    // For now, just return success since we're not storing read status in DB
+    // In a real app, you'd store this in a notifications collection
+    res.json({
+      success: true,
+      message: 'Notification marked as read'
+    });
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error marking notification as read'
+    });
+  }
+});
+
 module.exports = router; 
