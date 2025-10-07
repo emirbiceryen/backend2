@@ -122,8 +122,8 @@ router.get('/posts', auth, async (req, res) => {
 
 // Create a new post
 router.post('/posts', auth, upload.array('media', 5), [
-  body('title').optional().trim().isLength({ max: 200 }).withMessage('Title must be less than 200 characters'),
-  body('content').optional().trim().isLength({ min: 1 }).withMessage('Content must be at least 1 character if provided'),
+  body('title').notEmpty().trim().isLength({ min: 1, max: 200 }).withMessage('Title is required and must be between 1-200 characters'),
+  body('content').notEmpty().trim().isLength({ min: 1 }).withMessage('Content is required and must be at least 1 character'),
   body('isPoll').optional(),
   body('pollOptions').optional(),
   body('isEvent').optional(),
