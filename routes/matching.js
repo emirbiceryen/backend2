@@ -430,7 +430,8 @@ router.get('/matches', auth, async (req, res) => {
             ...otherUser.toObject(),
             profileImage: formattedProfileImage
           },
-          sharedHobbies: sharedHobbyNames,
+          sharedHobbies: sharedHobbyIds,
+          sharedHobbyNames: sharedHobbyNames,
           matchedAt: match.matchedAt,
           lastInteraction: match.lastInteraction
         };
