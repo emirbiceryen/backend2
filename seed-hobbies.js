@@ -100,7 +100,7 @@ const initialHobbies = [
   { name: 'Mountain Biking', category: 'Outdoor Activities', icon: '🚵‍♂️' },
   { name: 'Sailing', category: 'Outdoor Activities', icon: '⛵' },
   { name: 'Rock Collecting', category: 'Outdoor Activities', icon: '🪨' },
-  { name: 'Museums', category: 'Social & Entertainment', icon: '🏛️' },
+  { name: 'Museums', category: 'Social Activities', icon: '🏛️' },
   { name: 'Language Learning', category: 'Learning & Education', icon: '🗣️' },
   { name: 'Online Courses', category: 'Learning & Education', icon: '🎓' },
   { name: 'BBQ', category: 'Food & Cooking', icon: '🍖' },
@@ -110,16 +110,16 @@ const initialHobbies = [
   { name: 'Karaoke', category: 'Music & Entertainment', icon: '🎤' },
   { name: 'Road Trips', category: 'Travel & Adventure', icon: '🚗' },
   { name: 'Backpacking', category: 'Travel & Adventure', icon: '🎒' },
-  { name: 'Stamp Collecting', category: 'Collecting & Hobbies', icon: '📮' },
-  { name: 'Coin Collecting', category: 'Collecting & Hobbies', icon: '🪙' },
-  { name: 'Model Building', category: 'Collecting & Hobbies', icon: '🏗️' },
-  { name: 'Lego', category: 'Collecting & Hobbies', icon: '🧱' },
-  { name: 'Magic', category: 'Collecting & Hobbies', icon: '🎩' },
-  { name: 'Juggling', category: 'Collecting & Hobbies', icon: '🤹‍♂️' },
-  { name: 'Chess', category: 'Collecting & Hobbies', icon: '♟️' },
-  { name: 'Poker', category: 'Collecting & Hobbies', icon: '🃏' },
-  { name: 'Astronomy', category: 'Collecting & Hobbies', icon: '🔭' },
-  { name: 'Archeology', category: 'Collecting & Hobbies', icon: '🏺' }
+  { name: 'Stamp Collecting', category: 'Other', icon: '📮' },
+  { name: 'Coin Collecting', category: 'Other', icon: '🪙' },
+  { name: 'Model Building', category: 'Other', icon: '🏗️' },
+  { name: 'Lego', category: 'Other', icon: '🧱' },
+  { name: 'Magic', category: 'Other', icon: '🎩' },
+  { name: 'Juggling', category: 'Other', icon: '🤹‍♂️' },
+  { name: 'Chess', category: 'Other', icon: '♟️' },
+  { name: 'Poker', category: 'Other', icon: '🃏' },
+  { name: 'Astronomy', category: 'Other', icon: '🔭' },
+  { name: 'Archeology', category: 'Other', icon: '🏺' }
 ];
 
 async function seedHobbies() {
