@@ -4,19 +4,26 @@ require('dotenv').config({ path: './config.env' });
 const Hobby = require('./models/Hobby');
 
 const initialHobbies = [
-  // Priority Sports & Fitness (moved to top)
-  { name: 'Tennis', category: 'Sports & Fitness', icon: '🎾' },
+  // Popular Sports (Priority Order)
   { name: 'Soccer', category: 'Sports & Fitness', icon: '⚽' },
+  { name: 'Tennis', category: 'Sports & Fitness', icon: '🎾' },
+  { name: 'Badminton', category: 'Sports & Fitness', icon: '🏸' },
+  { name: 'Skiing', category: 'Sports & Fitness', icon: '⛷️' },
+  { name: 'Snowboarding', category: 'Sports & Fitness', icon: '🏂' },
+  { name: 'Kayaking', category: 'Sports & Fitness', icon: '🛶' },
+  { name: 'Fishing', category: 'Sports & Fitness', icon: '🎣' },
+  { name: 'Baseball', category: 'Sports & Fitness', icon: '⚾' },
   { name: 'Basketball', category: 'Sports & Fitness', icon: '🏀' },
   { name: 'Volleyball', category: 'Sports & Fitness', icon: '🏐' },
-  { name: 'Swimming', category: 'Sports & Fitness', icon: '🏊‍♂️' },
-  { name: 'Cycling', category: 'Sports & Fitness', icon: '🚴‍♂️' },
-  { name: 'Gym', category: 'Sports & Fitness', icon: '💪' },
-  { name: 'Board Games', category: 'Social Activities', icon: '🎲' },
-  { name: 'Running', category: 'Sports & Fitness', icon: '🏃‍♂️' },
 
   // Other Sports & Fitness
+  { name: 'Running', category: 'Sports & Fitness', icon: '🏃‍♂️' },
+  { name: 'Gym', category: 'Sports & Fitness', icon: '💪' },
   { name: 'Yoga', category: 'Sports & Fitness', icon: '🧘‍♀️' },
+  { name: 'Swimming', category: 'Sports & Fitness', icon: '🏊‍♂️' },
+  { name: 'Cycling', category: 'Sports & Fitness', icon: '🚴‍♂️' },
+  { name: 'Hiking', category: 'Sports & Fitness', icon: '🏔️' },
+  { name: 'Rock Climbing', category: 'Sports & Fitness', icon: '🧗‍♂️' },
 
   // Creative Arts
   { name: 'Photography', category: 'Creative Arts', icon: '📸' },
