@@ -212,35 +212,6 @@ function getRelativeTime(date) {
   }
 }
 
-// @route   GET /api/users/:id
-// @desc    Get user profile by ID
-// @access  Private
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('hobbies', 'name category icon');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
 // @route   GET /api/users/search
 // @desc    Search users by exact username match
 // @access  Private
@@ -374,6 +345,35 @@ router.put('/notifications/:id/read', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error marking notification as read'
+    });
+  }
+});
+
+// @route   GET /api/users/:id
+// @desc    Get user profile by ID
+// @access  Private
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('-password')
+      .populate('hobbies', 'name category icon');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });
