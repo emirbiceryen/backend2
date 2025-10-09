@@ -30,14 +30,9 @@ router.get('/', async (req, res) => {
 // @access  Private (for development)
 router.post('/seed', async (req, res) => {
   try {
-    // Check if hobbies already exist
-    const existingHobbies = await Hobby.countDocuments();
-    if (existingHobbies > 0) {
-      return res.json({
-        success: true,
-        message: 'Hobbies already seeded'
-      });
-    }
+    // Clear existing hobbies first
+    await Hobby.deleteMany({});
+    console.log('Cleared existing hobbies');
 
     const initialHobbies = [
       // Priority Sports & Fitness (moved to top)
