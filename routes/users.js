@@ -293,15 +293,15 @@ router.get('/notifications', auth, async (req, res) => {
 
       // Add comment notifications
       post.comments.forEach(comment => {
-        if (comment.user._id.toString() !== currentUser._id.toString()) {
+        if (comment.authorId.toString() !== currentUser._id.toString()) {
           notifications.push({
             id: `comment_${post._id}_${comment._id}`,
             type: 'comment',
             title: 'Gönderinize Yorum Yaptı',
-            message: `${comment.user.firstName || comment.user.name} paylaştığınız gönderiye yorum yaptı`,
+            message: `${comment.authorName} paylaştığınız gönderiye yorum yaptı`,
             user: {
-              name: comment.user.firstName || comment.user.name,
-              profileImage: comment.user.profileImage
+              name: comment.authorName,
+              profileImage: null // Comment doesn't have profile image
             },
             postId: post._id.toString(),
             time: new Date().toLocaleString('tr-TR'),
