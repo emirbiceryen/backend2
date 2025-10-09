@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
 // @route   POST /api/hobbies/seed
 // @desc    Seed initial hobby data
 // @access  Private (for development)
-router.post('/seed', auth, async (req, res) => {
+router.post('/seed', async (req, res) => {
   try {
     // Check if hobbies already exist
     const existingHobbies = await Hobby.countDocuments();
