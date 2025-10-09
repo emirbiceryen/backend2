@@ -261,6 +261,7 @@ router.get('/search', async (req, res) => {
 router.get('/notifications', auth, async (req, res) => {
   try {
     const currentUser = req.user;
+    console.log('Notifications endpoint called for user:', currentUser._id, currentUser.name);
     const notifications = [];
 
     // Get recent forum post likes and comments
@@ -270,6 +271,8 @@ router.get('/notifications', auth, async (req, res) => {
       .populate('comments.user', 'firstName lastName name profileImage')
       .sort({ createdAt: -1 })
       .limit(10);
+    
+    console.log('Found recent posts:', recentPosts.length);
 
     recentPosts.forEach(post => {
       console.log('Processing post:', post._id, 'likes:', post.likes.length, 'comments:', post.comments.length);
