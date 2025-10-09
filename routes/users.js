@@ -278,8 +278,8 @@ router.get('/notifications', auth, async (req, res) => {
           notifications.push({
             id: `like_${post._id}_${like._id}`,
             type: 'like',
-            title: 'Gönderinizi Beğendi',
-            message: `${like.firstName || like.name} paylaştığınız gönderiyi beğendi`,
+            title: 'Liked Your Post',
+            message: `${like.firstName || like.name} liked your post`,
             user: {
               name: like.firstName || like.name,
               profileImage: like.profileImage
@@ -297,8 +297,8 @@ router.get('/notifications', auth, async (req, res) => {
           notifications.push({
             id: `comment_${post._id}_${comment._id}`,
             type: 'comment',
-            title: 'Gönderinize Yorum Yaptı',
-            message: `${comment.authorName} paylaştığınız gönderiye yorum yaptı`,
+            title: 'Commented on Your Post',
+            message: `${comment.authorName} commented on your post`,
             user: {
               name: comment.authorName,
               profileImage: null // Comment doesn't have profile image
