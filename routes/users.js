@@ -272,8 +272,11 @@ router.get('/notifications', auth, async (req, res) => {
       .limit(10);
 
     recentPosts.forEach(post => {
+      console.log('Processing post:', post._id, 'likes:', post.likes.length, 'comments:', post.comments.length);
+      
       // Add like notifications
       post.likes.forEach(like => {
+        console.log('Processing like from user:', like._id, 'name:', like.firstName || like.name);
         if (like._id.toString() !== currentUser._id.toString()) {
           notifications.push({
             id: `like_${post._id}_${like._id}`,
