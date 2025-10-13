@@ -64,8 +64,15 @@ router.post('/signup', [
     // Generate token
     const token = generateToken(user._id);
 
-    // Populate hobbies before sending user data
-    await user.populate('hobbies', 'name');
+    // Populate hobbies before sending user data (if hobbies exist)
+    try {
+      if (user.hobbies && user.hobbies.length > 0) {
+        await user.populate('hobbies', 'name');
+      }
+    } catch (populateError) {
+      console.error('Error populating hobbies:', populateError);
+      // Continue without populating hobbies
+    }
 
     // Format profile image URL
     const host = process.env.NODE_ENV === 'production' 
@@ -88,9 +95,12 @@ router.post('/signup', [
     });
   } catch (error) {
     console.error('Signup error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Server error during registration'
+      message: 'Server error during registration',
+      error: error.message
     });
   }
 });
