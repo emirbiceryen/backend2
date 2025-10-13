@@ -36,6 +36,12 @@ router.get('/potential', auth, async (req, res) => {
     })
     .select('firstName lastName name bio location age hobbies hobbySkillLevels profileImage averageRating totalRatings')
     .limit(10);
+
+    console.log('Current user hobbies:', currentUser.hobbies);
+    console.log('Found potential matches:', potentialMatches.length);
+    potentialMatches.forEach(match => {
+      console.log(`User ${match.name} hobbies:`, match.hobbies);
+    });
     
 
 
@@ -47,10 +53,16 @@ router.get('/potential', auth, async (req, res) => {
         // Get other user's hobby IDs
         const userHobbies = user.hobbies || [];
         
+        console.log(`Checking user ${user.name}:`);
+        console.log(`  Current user hobbies:`, currentUserHobbyIds);
+        console.log(`  Other user hobbies:`, userHobbies);
+        
         // Find shared hobby IDs
         const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
           userHobbies.includes(hobbyId)
         );
+        
+        console.log(`  Shared hobbies:`, sharedHobbyIds);
         
         return {
           ...user.toObject(),
