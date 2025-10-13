@@ -80,19 +80,19 @@ const userSchema = new mongoose.Schema({
   location: {
     city: {
       type: String,
-      required: [true, 'City is required'],
+      required: false,
       trim: true,
       maxlength: [50, 'City cannot be more than 50 characters']
     },
     state: {
       type: String,
-      required: [true, 'State/Province is required'],
+      required: false,
       trim: true,
       maxlength: [50, 'State/Province cannot be more than 50 characters']
     },
     country: {
       type: String,
-      required: [true, 'Country is required'],
+      required: false,
       trim: true,
       maxlength: [50, 'Country cannot be more than 50 characters']
     }
