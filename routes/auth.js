@@ -52,6 +52,8 @@ router.post('/signup', [
     }
 
     // Create new user
+    console.log('Creating user with data:', { name, email, username: username.toLowerCase() });
+    
     const user = new User({
       name,
       email,
@@ -59,7 +61,9 @@ router.post('/signup', [
       password
     });
 
+    console.log('User object created, saving to database...');
     await user.save();
+    console.log('User saved successfully with ID:', user._id);
 
     // Generate token
     const token = generateToken(user._id);

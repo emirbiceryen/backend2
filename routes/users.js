@@ -355,6 +355,32 @@ router.put('/notifications/:id/read', auth, async (req, res) => {
   }
 });
 
+// @route   POST /api/users/clear-hobbies
+// @desc    Clear user's hobbies (for migration)
+// @access  Private
+router.post('/clear-hobbies', auth, async (req, res) => {
+  try {
+    const currentUser = req.user;
+    
+    // Clear hobbies and hobbySkillLevels
+    currentUser.hobbies = [];
+    currentUser.hobbySkillLevels = {};
+    
+    await currentUser.save();
+    
+    res.json({
+      success: true,
+      message: 'Hobbies cleared successfully. Please re-select your hobbies.'
+    });
+  } catch (error) {
+    console.error('Error clearing hobbies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error clearing hobbies'
+    });
+  }
+});
+
 // @route   GET /api/users/:id
 // @desc    Get user profile by ID
 // @access  Private

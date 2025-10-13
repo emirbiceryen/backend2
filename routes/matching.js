@@ -37,11 +37,16 @@ router.get('/potential', auth, async (req, res) => {
     .select('firstName lastName name bio location age hobbies hobbySkillLevels profileImage averageRating totalRatings')
     .limit(10);
 
+    console.log('=== MATCHING DEBUG ===');
+    console.log('Current user ID:', currentUser._id);
+    console.log('Current user name:', currentUser.name);
     console.log('Current user hobbies:', currentUser.hobbies);
+    console.log('Rejected user IDs:', rejectedUserIds);
     console.log('Found potential matches:', potentialMatches.length);
     potentialMatches.forEach(match => {
-      console.log(`User ${match.name} hobbies:`, match.hobbies);
+      console.log(`User ${match.name} (${match._id}) hobbies:`, match.hobbies);
     });
+    console.log('=== END DEBUG ===');
     
 
 
