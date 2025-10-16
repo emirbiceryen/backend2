@@ -25,6 +25,11 @@ const hobbySchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  order: {
+    type: Number,
+    required: true,
+    unique: true
   }
 }, {
   timestamps: true

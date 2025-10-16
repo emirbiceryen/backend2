@@ -8,7 +8,7 @@ const auth = require('../middleware/auth');
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const hobbies = await Hobby.find().sort({ name: 1 });
+    const hobbies = await Hobby.find().sort({ order: 1 });
     res.json({
       success: true,
       hobbies
@@ -57,39 +57,39 @@ router.post('/seed', async (req, res) => {
     console.log('Cleared existing hobbies');
 
     const initialHobbies = [
-      // Exact 32 hobbies in specified order
-      { name: 'Tennis', category: 'Sports & Fitness', icon: '🎾' },
-      { name: 'Soccer', category: 'Sports & Fitness', icon: '⚽' },
-      { name: 'Basketball', category: 'Sports & Fitness', icon: '🏀' },
-      { name: 'Volleyball', category: 'Sports & Fitness', icon: '🏐' },
-      { name: 'Kayaking', category: 'Sports & Fitness', icon: '🛶' },
-      { name: 'Cycling', category: 'Sports & Fitness', icon: '🚴‍♂️' },
-      { name: 'Surfing', category: 'Sports & Fitness', icon: '🏄‍♂️' },
-      { name: 'Baseball', category: 'Sports & Fitness', icon: '⚾' },
-      { name: 'Gym', category: 'Sports & Fitness', icon: '💪' },
-      { name: 'Ski', category: 'Sports & Fitness', icon: '⛷️' },
-      { name: 'Fishing', category: 'Sports & Fitness', icon: '🎣' },
-      { name: 'Running', category: 'Sports & Fitness', icon: '🏃‍♂️' },
-      { name: 'Swimming', category: 'Sports & Fitness', icon: '🏊‍♂️' },
-      { name: 'Gaming', category: 'Technology', icon: '🎮' },
-      { name: 'Dancing', category: 'Creative Arts', icon: '💃' },
-      { name: 'Programming', category: 'Technology', icon: '💻' },
-      { name: 'Crafting', category: 'Creative Arts', icon: '🧶' },
-      { name: 'Painting', category: 'Creative Arts', icon: '🎨' },
-      { name: 'Board Games', category: 'Social Activities', icon: '🎲' },
-      { name: 'Photography', category: 'Creative Arts', icon: '📸' },
-      { name: 'Language Learning', category: 'Learning & Education', icon: '🗣️' },
-      { name: 'Reading', category: 'Learning & Education', icon: '📚' },
-      { name: 'Tea, Coffee', category: 'Social Activities', icon: '☕' },
-      { name: 'Cooking', category: 'Creative Arts', icon: '👨‍🍳' },
-      { name: 'Rock Climbing', category: 'Sports & Fitness', icon: '🧗‍♂️' },
-      { name: 'Hiking', category: 'Sports & Fitness', icon: '🏔️' },
-      { name: 'Concerts', category: 'Music & Entertainment', icon: '🎵' },
-      { name: 'Theater', category: 'Music & Entertainment', icon: '🎭' },
-      { name: 'Movies', category: 'Music & Entertainment', icon: '🎬' },
-      { name: 'Karaoke', category: 'Music & Entertainment', icon: '🎤' },
-      { name: 'Travel', category: 'Travel & Adventure', icon: '✈️' },
-      { name: 'Road Trips', category: 'Travel & Adventure', icon: '🚗' }
+      // Exact 32 hobbies in specified order with order field
+      { name: 'Tennis', category: 'Sports & Fitness', icon: '🎾', order: 1 },
+      { name: 'Soccer', category: 'Sports & Fitness', icon: '⚽', order: 2 },
+      { name: 'Basketball', category: 'Sports & Fitness', icon: '🏀', order: 3 },
+      { name: 'Volleyball', category: 'Sports & Fitness', icon: '🏐', order: 4 },
+      { name: 'Kayaking', category: 'Sports & Fitness', icon: '🛶', order: 5 },
+      { name: 'Cycling', category: 'Sports & Fitness', icon: '🚴‍♂️', order: 6 },
+      { name: 'Surfing', category: 'Sports & Fitness', icon: '🏄‍♂️', order: 7 },
+      { name: 'Baseball', category: 'Sports & Fitness', icon: '⚾', order: 8 },
+      { name: 'Gym', category: 'Sports & Fitness', icon: '💪', order: 9 },
+      { name: 'Ski', category: 'Sports & Fitness', icon: '⛷️', order: 10 },
+      { name: 'Fishing', category: 'Sports & Fitness', icon: '🎣', order: 11 },
+      { name: 'Running', category: 'Sports & Fitness', icon: '🏃‍♂️', order: 12 },
+      { name: 'Swimming', category: 'Sports & Fitness', icon: '🏊‍♂️', order: 13 },
+      { name: 'Gaming', category: 'Technology', icon: '🎮', order: 14 },
+      { name: 'Dancing', category: 'Creative Arts', icon: '💃', order: 15 },
+      { name: 'Programming', category: 'Technology', icon: '💻', order: 16 },
+      { name: 'Crafting', category: 'Creative Arts', icon: '🧶', order: 17 },
+      { name: 'Painting', category: 'Creative Arts', icon: '🎨', order: 18 },
+      { name: 'Board Games', category: 'Social Activities', icon: '🎲', order: 19 },
+      { name: 'Photography', category: 'Creative Arts', icon: '📸', order: 20 },
+      { name: 'Language Learning', category: 'Learning & Education', icon: '🗣️', order: 21 },
+      { name: 'Reading', category: 'Learning & Education', icon: '📚', order: 22 },
+      { name: 'Tea, Coffee', category: 'Social Activities', icon: '☕', order: 23 },
+      { name: 'Cooking', category: 'Creative Arts', icon: '👨‍🍳', order: 24 },
+      { name: 'Rock Climbing', category: 'Sports & Fitness', icon: '🧗‍♂️', order: 25 },
+      { name: 'Hiking', category: 'Sports & Fitness', icon: '🏔️', order: 26 },
+      { name: 'Concerts', category: 'Music & Entertainment', icon: '🎵', order: 27 },
+      { name: 'Theater', category: 'Music & Entertainment', icon: '🎭', order: 28 },
+      { name: 'Movies', category: 'Music & Entertainment', icon: '🎬', order: 29 },
+      { name: 'Karaoke', category: 'Music & Entertainment', icon: '🎤', order: 30 },
+      { name: 'Travel', category: 'Travel & Adventure', icon: '✈️', order: 31 },
+      { name: 'Road Trips', category: 'Travel & Adventure', icon: '🚗', order: 32 }
     ];
 
     await Hobby.insertMany(initialHobbies);
