@@ -475,8 +475,8 @@ router.get('/matches', auth, async (req, res) => {
   try {
     const currentUser = req.user;
     const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app/uploads/'
-      : `${req.protocol}://${req.get('host')}/uploads/`;
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
 
     // Find confirmed matches
     const matches = await Match.find({
@@ -486,9 +486,22 @@ router.get('/matches', auth, async (req, res) => {
       ],
       status: 'matched'
     })
-    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings')
-    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings')
+    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
+    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
     .sort({ matchedAt: -1 });
+
+    // Get all hobby IDs from all matches
+    const allHobbyIds = [...new Set(matches.flatMap(match => [
+      ...(match.user1.hobbies || []),
+      ...(match.user2.hobbies || [])
+    ]))];
+    
+    // Fetch hobby names
+    const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name');
+    const hobbyMap = {};
+    hobbies.forEach(hobby => {
+      hobbyMap[hobby._id.toString()] = hobby.name;
+    });
 
     // Format matches
     const formattedMatches = matches.map(match => {
@@ -501,13 +514,33 @@ router.get('/matches', auth, async (req, res) => {
         ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
         : null;
       
+      // Calculate shared hobbies
+      const currentUserHobbyIds = currentUser.hobbies || [];
+      const otherUserHobbiesArray = otherUser.hobbies || [];
+      const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
+        otherUserHobbiesArray.includes(hobbyId)
+      );
+      
+      // Get hobby names
+      const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
+      
+      // Get skill level for the first shared hobby
+      const firstSharedHobbyId = sharedHobbyIds[0];
+      const sharedHobbySkillLevel = otherUser.hobbySkillLevels && firstSharedHobbyId 
+        ? otherUser.hobbySkillLevels.get(firstSharedHobbyId) 
+        : null;
+      
       return {
         id: match._id,
         user: {
           ...otherUser.toObject(),
           profileImage: formattedProfileImage
         },
-        matchedAt: match.matchedAt || match.createdAt
+        sharedHobbies: sharedHobbyIds,
+        sharedHobbyNames: sharedHobbyNames,
+        sharedHobbySkillLevel: sharedHobbySkillLevel,
+        matchedAt: match.matchedAt || match.createdAt,
+        lastInteraction: match.lastInteraction
       };
     });
 
