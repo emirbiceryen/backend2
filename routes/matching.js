@@ -80,11 +80,14 @@ router.get('/potential', auth, async (req, res) => {
 
     // Fetch hobby names for all shared hobby IDs
     const allHobbyIds = [...new Set(matchesWithSharedHobbies.flatMap(match => match.sharedHobbies))];
+    console.log('All hobby IDs to fetch:', allHobbyIds);
     const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name');
+    console.log('Fetched hobbies:', hobbies);
     const hobbyMap = {};
     hobbies.forEach(hobby => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
+    console.log('Hobby map created:', hobbyMap);
 
     // Add hobby names to matches and format profile images
     const host = process.env.NODE_ENV === 'production' 
