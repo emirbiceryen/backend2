@@ -588,7 +588,11 @@ router.delete('/posts/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    // Allow any authenticated user to delete any post (for cleanup purposes)
+    // Only allow post author to delete their own post
+    if (post.authorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this post' });
+    }
+
     await Post.findByIdAndDelete(req.params.id);
 
     res.json({
