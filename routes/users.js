@@ -53,7 +53,7 @@ router.put('/hobbies', auth, [
 
     const updateData = { 
       hobbies,
-      isProfileComplete: hobbies.length > 0
+      isProfileComplete: false // Profile is not complete until user goes through all registration steps
     };
 
     // Add hobby skill levels if provided
