@@ -117,7 +117,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       skills,
       hobbies,
       location,
-      age
+      age,
+      birthDate
     } = req.body;
 
     const updateData = {};
@@ -163,6 +164,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     
     if (location !== undefined) updateData.location = location;
     if (age !== undefined) updateData.age = age;
+    if (birthDate !== undefined) updateData.birthDate = birthDate;
 
     // Check if profile is complete
     const isComplete = !!(firstName && lastName && hobbies && hobbies.length > 0);
@@ -217,6 +219,66 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 
+    });
+  }
+});
+
+// Upload profile image only
+router.post('/upload-image', auth, upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profileImage: `/uploads/${req.file.filename}` },
+      { new: true, runValidators: true }
+    ).populate('hobbies', 'name description icon');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Format profile image URL
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
+    const formattedProfileImage = user.profileImage 
+      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      : null;
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        bio: user.bio,
+        skills: user.skills,
+        hobbies: user.hobbies,
+        profileImage: formattedProfileImage,
+        location: user.location,
+        age: user.age,
+        averageRating: user.averageRating,
+        totalRatings: user.totalRatings,
+        isProfileComplete: user.isProfileComplete
+      }
+    });
+
+  } catch (error) {
+    console.error('Error uploading profile image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });

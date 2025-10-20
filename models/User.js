@@ -97,6 +97,10 @@ const userSchema = new mongoose.Schema({
       maxlength: [50, 'Country cannot be more than 50 characters']
     }
   },
+  birthDate: {
+    type: Date,
+    required: false
+  },
   age: {
     type: Number,
     min: [13, 'Age must be at least 13'],
@@ -137,6 +141,23 @@ userSchema.pre('save', function(next) {
     const nameParts = this.name.trim().split(' ');
     this.firstName = nameParts[0] || '';
     this.lastName = nameParts.slice(1).join(' ') || '';
+  }
+  next();
+});
+
+// Calculate age from birthDate before saving
+userSchema.pre('save', function(next) {
+  if (this.isModified('birthDate') && this.birthDate) {
+    const today = new Date();
+    const birthDate = new Date(this.birthDate);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    this.age = age;
   }
   next();
 });
