@@ -179,8 +179,11 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       }
     }
 
-    // Check if profile is complete
-    const isComplete = !!(firstName && lastName && hobbies && hobbies.length > 0);
+    // Check if profile is complete (hobbies, age, and profile image)
+    const hasHobbies = hobbies && hobbies.length > 0;
+    const hasAge = age !== undefined && age !== null;
+    const hasProfileImage = req.file || user.profileImage;
+    const isComplete = !!(firstName && lastName && hasHobbies && hasAge && hasProfileImage);
     updateData.isProfileComplete = isComplete;
 
     const user = await User.findByIdAndUpdate(
