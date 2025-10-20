@@ -164,7 +164,20 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     
     if (location !== undefined) updateData.location = location;
     if (age !== undefined) updateData.age = age;
-    if (birthDate !== undefined) updateData.birthDate = birthDate;
+    if (birthDate !== undefined) {
+      updateData.birthDate = birthDate;
+      // Also compute age from birthDate when provided
+      const birth = new Date(birthDate);
+      if (!isNaN(birth.getTime())) {
+        const today = new Date();
+        let computedAge = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          computedAge--;
+        }
+        updateData.age = computedAge;
+      }
+    }
 
     // Check if profile is complete
     const isComplete = !!(firstName && lastName && hobbies && hobbies.length > 0);
