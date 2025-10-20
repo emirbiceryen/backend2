@@ -318,4 +318,25 @@ router.get('/hobbies', async (req, res) => {
   }
 });
 
+// Delete user account
+router.delete('/me', auth, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Delete user and all related data
+    await User.findByIdAndDelete(userId);
+    
+    res.json({
+      success: true,
+      message: 'Account deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 module.exports = router; 
