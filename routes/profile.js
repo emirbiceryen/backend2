@@ -232,9 +232,12 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
 
   } catch (error) {
     console.error('Error updating profile:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
