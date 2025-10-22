@@ -602,4 +602,208 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Get all teams (for team selection)
+router.get('/all', async (req, res) => {
+  try {
+    const teams = await Team.find({ isActive: true })
+      .populate('captain', 'name username email profileImage')
+      .populate('members', 'name username email profileImage')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      teams: teams
+    });
+  } catch (error) {
+    console.error('Error fetching all teams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Join team request
+router.post('/:teamId/join-request', auth, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const userId = req.user._id;
+
+    // Check if team exists
+    const team = await Team.findById(teamId).populate('captain', 'name username email');
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    // Check if user is already a member
+    const isAlreadyMember = team.members.some(member => member.toString() === userId.toString());
+    if (isAlreadyMember) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already a member of this team'
+      });
+    }
+
+    // Check if team is full
+    if (team.members.length >= team.maxMembers) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team is full'
+      });
+    }
+
+    // Get user info
+    const user = await User.findById(userId).select('name username email');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Create join request notification for captain
+    const notification = {
+      type: 'team_join_request',
+      from: {
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email
+      },
+      team: {
+        _id: team._id,
+        name: team.name,
+        sport: team.sport
+      },
+      message: `${user.name} wants to join your ${team.sport} team "${team.name}"`,
+      createdAt: new Date(),
+      status: 'pending'
+    };
+
+    // Add notification to captain's notifications
+    await User.findByIdAndUpdate(
+      team.captain._id,
+      { $push: { notifications: notification } }
+    );
+
+    res.json({
+      success: true,
+      message: 'Join request sent to team captain'
+    });
+  } catch (error) {
+    console.error('Error sending join request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Approve join request
+router.post('/:teamId/approve-request', auth, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { userId } = req.body;
+    const captainId = req.user._id;
+
+    // Check if team exists and user is captain
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    if (team.captain.toString() !== captainId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only team captain can approve join requests'
+      });
+    }
+
+    // Check if team is full
+    if (team.members.length >= team.maxMembers) {
+      return res.status(400).json({
+        success: false,
+        message: 'Team is full'
+      });
+    }
+
+    // Add user to team
+    await Team.findByIdAndUpdate(
+      teamId,
+      { $addToSet: { members: userId } }
+    );
+
+    // Add team to user's teams
+    await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { teams: teamId } }
+    );
+
+    // Remove the notification
+    await User.findByIdAndUpdate(
+      captainId,
+      { $pull: { notifications: { type: 'team_join_request', 'from._id': userId } } }
+    );
+
+    res.json({
+      success: true,
+      message: 'User added to team successfully'
+    });
+  } catch (error) {
+    console.error('Error approving join request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// Reject join request
+router.post('/:teamId/reject-request', auth, async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    const { userId } = req.body;
+    const captainId = req.user._id;
+
+    // Check if team exists and user is captain
+    const team = await Team.findById(teamId);
+    if (!team) {
+      return res.status(404).json({
+        success: false,
+        message: 'Team not found'
+      });
+    }
+
+    if (team.captain.toString() !== captainId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only team captain can reject join requests'
+      });
+    }
+
+    // Remove the notification
+    await User.findByIdAndUpdate(
+      captainId,
+      { $pull: { notifications: { type: 'team_join_request', 'from._id': userId } } }
+    );
+
+    res.json({
+      success: true,
+      message: 'Join request rejected'
+    });
+  } catch (error) {
+    console.error('Error rejecting join request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 module.exports = router;
