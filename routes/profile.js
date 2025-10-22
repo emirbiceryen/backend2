@@ -162,7 +162,9 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       console.log('No file uploaded');
     }
     
-    if (location !== undefined) updateData.location = location;
+    if (location !== undefined && location && (location.city || location.state || location.country)) {
+      updateData.location = location;
+    }
     if (age !== undefined) updateData.age = age;
     if (birthDate !== undefined) {
       console.log('Processing birthDate:', birthDate);
