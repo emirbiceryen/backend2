@@ -36,6 +36,29 @@ const upload = multer({
   }
 });
 
+// @route   GET /api/teams/all
+// @desc    Get all teams (for team selection)
+// @access  Public
+router.get('/all', async (req, res) => {
+  try {
+    const teams = await Team.find({ isActive: true })
+      .populate('captain', 'name username email profileImage')
+      .populate('members', 'name username email profileImage')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      teams: teams
+    });
+  } catch (error) {
+    console.error('Error fetching all teams:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 // @route   POST /api/teams
 // @desc    Create a new team
 // @access  Private (Premium only)
@@ -602,26 +625,6 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Get all teams (for team selection)
-router.get('/all', async (req, res) => {
-  try {
-    const teams = await Team.find({ isActive: true })
-      .populate('captain', 'name username email profileImage')
-      .populate('members', 'name username email profileImage')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      teams: teams
-    });
-  } catch (error) {
-    console.error('Error fetching all teams:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
 
 // Join team request
 router.post('/:teamId/join-request', auth, async (req, res) => {
