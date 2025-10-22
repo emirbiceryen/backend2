@@ -184,10 +184,19 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       }
     }
 
+    // Get current user first to check existing profile image
+    const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
     // Check if profile is complete (hobbies, age, and profile image)
     const hasHobbies = hobbies && hobbies.length > 0;
     const hasAge = age !== undefined && age !== null;
-    const hasProfileImage = req.file || user.profileImage;
+    const hasProfileImage = req.file || currentUser.profileImage;
     const isComplete = !!(firstName && lastName && hasHobbies && hasAge && hasProfileImage);
     updateData.isProfileComplete = isComplete;
 
