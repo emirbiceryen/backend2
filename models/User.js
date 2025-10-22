@@ -130,6 +130,44 @@ const userSchema = new mongoose.Schema({
   captainOfTeams: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
+  }],
+  notifications: [{
+    type: {
+      type: String,
+      enum: ['match_request', 'match_accepted', 'team_join_request', 'team_request_approved', 'team_request_rejected'],
+      required: true
+    },
+    from: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      name: String,
+      username: String,
+      email: String
+    },
+    team: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team'
+      },
+      name: String,
+      sport: String
+    },
+    message: String,
+    read: {
+      type: Boolean,
+      default: false
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
   }]
 }, {
   timestamps: true

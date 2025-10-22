@@ -5,6 +5,24 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 
+// Helper function to get notification title
+const getNotificationTitle = (type) => {
+  switch (type) {
+    case 'match_request':
+      return 'New Match Request';
+    case 'match_accepted':
+      return 'Match Accepted';
+    case 'team_join_request':
+      return 'Team Join Request';
+    case 'team_request_approved':
+      return 'Team Request Approved';
+    case 'team_request_rejected':
+      return 'Team Request Rejected';
+    default:
+      return 'Notification';
+  }
+};
+
 // @route   PUT /api/users/hobbies
 // @desc    Update user hobbies and skill levels
 // @access  Private
@@ -316,6 +334,33 @@ router.get('/notifications', auth, async (req, res) => {
         }
       });
     });
+
+    // Get user's stored notifications (from User model)
+    const user = await User.findById(currentUser._id).select('notifications');
+    if (user && user.notifications) {
+      user.notifications.forEach(notification => {
+        notifications.push({
+          id: `stored_${notification._id}`,
+          type: notification.type,
+          title: getNotificationTitle(notification.type),
+          message: notification.message,
+          user: notification.from ? {
+            _id: notification.from._id,
+            name: notification.from.name,
+            username: notification.from.username,
+            profileImage: notification.from.profileImage
+          } : null,
+          team: notification.team ? {
+            _id: notification.team._id,
+            name: notification.team.name,
+            sport: notification.team.sport
+          } : null,
+          time: notification.createdAt,
+          read: notification.read,
+          status: notification.status
+        });
+      });
+    }
 
     // Sort notifications by time (most recent first)
     notifications.sort((a, b) => new Date(b.time) - new Date(a.time));
