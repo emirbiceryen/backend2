@@ -67,6 +67,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  gallery: [{
+    type: String,
+    default: []
+  }],
   averageRating: {
     type: Number,
     default: 0,

@@ -486,4 +486,37 @@ router.get('/:userId', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/:userId/gallery
+// @desc    Get user gallery by ID
+// @access  Private
+router.get('/:userId/gallery', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId)
+      .select('gallery profileImage');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Combine profile image and gallery
+    const allImages = [user.profileImage, ...user.gallery].filter(Boolean);
+
+    res.json({
+      success: true,
+      gallery: allImages
+    });
+  } catch (error) {
+    console.error('Error fetching user gallery:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user gallery'
+    });
+  }
+});
+
 module.exports = router; 
