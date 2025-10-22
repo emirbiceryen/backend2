@@ -165,9 +165,11 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     if (location !== undefined) updateData.location = location;
     if (age !== undefined) updateData.age = age;
     if (birthDate !== undefined) {
+      console.log('Processing birthDate:', birthDate);
       updateData.birthDate = birthDate;
       // Also compute age from birthDate when provided
       const birth = new Date(birthDate);
+      console.log('Parsed birth date:', birth);
       if (!isNaN(birth.getTime())) {
         const today = new Date();
         let computedAge = today.getFullYear() - birth.getFullYear();
@@ -175,7 +177,10 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
           computedAge--;
         }
+        console.log('Computed age:', computedAge);
         updateData.age = computedAge;
+      } else {
+        console.log('Invalid birth date format');
       }
     }
 
@@ -185,6 +190,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     const hasProfileImage = req.file || user.profileImage;
     const isComplete = !!(firstName && lastName && hasHobbies && hasAge && hasProfileImage);
     updateData.isProfileComplete = isComplete;
+
+    console.log('Final updateData:', updateData);
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
