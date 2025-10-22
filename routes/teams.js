@@ -659,7 +659,7 @@ router.post('/:teamId/join-request', auth, async (req, res) => {
     }
 
     // Get user info
-    const user = await User.findById(userId).select('name username email');
+    const user = await User.findById(userId).select('name username email profileImage');
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -674,7 +674,8 @@ router.post('/:teamId/join-request', auth, async (req, res) => {
         _id: user._id,
         name: user.name,
         username: user.username,
-        email: user.email
+        email: user.email,
+        profileImage: user.profileImage
       },
       team: {
         _id: team._id,
