@@ -519,4 +519,47 @@ router.get('/:userId/gallery', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/gallery
+// @desc    Update user gallery
+// @access  Private
+router.put('/gallery', auth, async (req, res) => {
+  try {
+    const { gallery } = req.body;
+    
+    if (!Array.isArray(gallery)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gallery must be an array'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { gallery: gallery },
+      { new: true }
+    ).select('gallery profileImage');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Combine profile image and gallery
+    const allImages = [user.profileImage, ...user.gallery].filter(Boolean);
+
+    res.json({
+      success: true,
+      gallery: allImages
+    });
+  } catch (error) {
+    console.error('Error updating user gallery:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user gallery'
+    });
+  }
+});
+
 module.exports = router; 
