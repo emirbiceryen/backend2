@@ -455,4 +455,35 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/users/:userId
+// @desc    Get user profile by ID
+// @access  Private
+router.get('/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findById(userId)
+      .populate('hobbies', 'name description icon')
+      .select('-password -email -__v');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: user
+    });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user profile'
+    });
+  }
+});
+
 module.exports = router; 
