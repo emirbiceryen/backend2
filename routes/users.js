@@ -455,6 +455,46 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// @route   PUT /api/users/equipment
+// @desc    Update user equipment
+// @access  Private
+router.put('/equipment', auth, async (req, res) => {
+  try {
+    const { equipment } = req.body;
+    
+    if (!Array.isArray(equipment)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Equipment must be an array'
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { equipment: equipment },
+      { new: true }
+    ).select('equipment');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      equipment: user.equipment
+    });
+  } catch (error) {
+    console.error('Error updating user equipment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user equipment'
+    });
+  }
+});
+
 // @route   GET /api/users/:userId
 // @desc    Get user profile by ID
 // @access  Private

@@ -71,6 +71,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: []
   }],
+  equipment: [{
+    type: String,
+    default: []
+  }],
   averageRating: {
     type: Number,
     default: 0,
