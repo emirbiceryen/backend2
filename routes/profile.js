@@ -126,7 +126,19 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
     if (bio !== undefined) updateData.bio = bio;
-    if (skills !== undefined) updateData.skills = skills;
+    if (skills !== undefined) {
+      // Handle skills as array or string
+      if (Array.isArray(skills)) {
+        updateData.skills = skills;
+      } else if (typeof skills === 'string') {
+        try {
+          const parsedSkills = JSON.parse(skills);
+          updateData.skills = Array.isArray(parsedSkills) ? parsedSkills : [parsedSkills];
+        } catch (e) {
+          updateData.skills = [skills];
+        }
+      }
+    }
     if (hobbies !== undefined) {
       // Handle hobbies from FormData (array) or JSON (array)
       let hobbiesArray = hobbies;
@@ -217,15 +229,78 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     }
 
     // Check if profile is complete (hobbies, age, and profile image)
-    // Use updated hobbies if provided, otherwise use current user's hobbies
+    // Use updated values if provided, otherwise use current user's values
+    const finalFirstName = updateData.firstName !== undefined ? updateData.firstName : currentUser.firstName;
+    const finalLastName = updateData.lastName !== undefined ? updateData.lastName : currentUser.lastName;
     const finalHobbies = updateData.hobbies || currentUser.hobbies || [];
     const hasHobbies = Array.isArray(finalHobbies) && finalHobbies.length > 0;
-    const hasAge = updateData.age !== undefined && updateData.age !== null;
+    const finalAge = updateData.age !== undefined ? updateData.age : currentUser.age;
+    const hasAge = finalAge !== undefined && finalAge !== null;
     const hasProfileImage = updateData.profileImage || currentUser.profileImage;
-    const isComplete = !!(firstName && lastName && hasHobbies && hasAge && hasProfileImage);
-    updateData.isProfileComplete = isComplete;
+    const isComplete = !!(finalFirstName && finalLastName && hasHobbies && hasAge && hasProfileImage);
+    
+    // Remove undefined values from updateData to prevent MongoDB errors
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
+    });
+    
+    // Only set isProfileComplete if we're actually updating it
+    if (Object.keys(updateData).length > 0) {
+      updateData.isProfileComplete = isComplete;
+    }
 
     console.log('Final updateData:', updateData);
+    console.log('Profile completion check:', {
+      finalFirstName,
+      finalLastName,
+      hasHobbies,
+      hasAge,
+      hasProfileImage,
+      isComplete
+    });
+
+    // If no data to update, return current user
+    if (Object.keys(updateData).length === 0) {
+      const user = await User.findById(req.user._id)
+        .populate('hobbies', 'name description icon');
+      
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'User not found' 
+        });
+      }
+
+      // Format profile image URL
+      const host = process.env.NODE_ENV === 'production' 
+        ? 'https://backend-production-7063.up.railway.app'
+        : `${req.protocol}://${req.get('host')}`;
+      const formattedProfileImage = user.profileImage 
+        ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+        : null;
+
+      return res.json({
+        success: true,
+        message: 'Profile retrieved successfully',
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          bio: user.bio,
+          skills: user.skills,
+          hobbies: user.hobbies,
+          profileImage: formattedProfileImage,
+          location: user.location,
+          age: user.age,
+          averageRating: user.averageRating,
+          totalRatings: user.totalRatings,
+          isProfileComplete: user.isProfileComplete
+        }
+      });
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
