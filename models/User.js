@@ -70,8 +70,18 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
   location: {
-    type: String,
-    maxlength: [100, 'Location cannot be more than 100 characters']
+    city: {
+      type: String,
+      maxlength: [100, 'City cannot be more than 100 characters']
+    },
+    state: {
+      type: String,
+      maxlength: [100, 'State cannot be more than 100 characters']
+    },
+    country: {
+      type: String,
+      maxlength: [100, 'Country cannot be more than 100 characters']
+    }
   },
   age: {
     type: Number,
