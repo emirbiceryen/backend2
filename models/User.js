@@ -18,8 +18,9 @@ const userSchema = new mongoose.Schema({
   },
   username: {
     type: String,
-    required: [true, 'Username is required'],
+    required: false, // Temporarily make optional for existing users
     unique: true,
+    sparse: true, // Allows multiple null values
     trim: true,
     lowercase: true,
     minlength: [3, 'Username must be at least 3 characters'],
@@ -35,15 +36,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     ref: 'Hobby'
   }],
-  hobbySkillLevels: {
-    type: Map,
-    of: {
-      type: Number,
-      min: 1,
-      max: 10
-    },
-    default: {}
-  },
   firstName: {
     type: String,
     trim: true,
@@ -67,14 +59,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  gallery: [{
-    type: String,
-    default: []
-  }],
-  equipment: [{
-    type: String,
-    default: []
-  }],
   averageRating: {
     type: Number,
     default: 0,
@@ -86,28 +70,8 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
   location: {
-    city: {
-      type: String,
-      required: false,
-      trim: true,
-      maxlength: [50, 'City cannot be more than 50 characters']
-    },
-    state: {
-      type: String,
-      required: false,
-      trim: true,
-      maxlength: [50, 'State/Province cannot be more than 50 characters']
-    },
-    country: {
-      type: String,
-      required: false,
-      trim: true,
-      maxlength: [50, 'Country cannot be more than 50 characters']
-    }
-  },
-  birthDate: {
-    type: Date,
-    required: false
+    type: String,
+    maxlength: [100, 'Location cannot be more than 100 characters']
   },
   age: {
     type: Number,
@@ -138,44 +102,6 @@ const userSchema = new mongoose.Schema({
   captainOfTeams: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
-  }],
-  notifications: [{
-    type: {
-      type: String,
-      enum: ['match_request', 'match_accepted', 'team_join_request', 'team_request_approved', 'team_request_rejected'],
-      required: true
-    },
-    from: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      name: String,
-      username: String,
-      email: String
-    },
-    team: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team'
-      },
-      name: String,
-      sport: String
-    },
-    message: String,
-    read: {
-      type: Boolean,
-      default: false
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending'
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
   }]
 }, {
   timestamps: true
@@ -187,23 +113,6 @@ userSchema.pre('save', function(next) {
     const nameParts = this.name.trim().split(' ');
     this.firstName = nameParts[0] || '';
     this.lastName = nameParts.slice(1).join(' ') || '';
-  }
-  next();
-});
-
-// Calculate age from birthDate before saving
-userSchema.pre('save', function(next) {
-  if (this.isModified('birthDate') && this.birthDate) {
-    const today = new Date();
-    const birthDate = new Date(this.birthDate);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    this.age = age;
   }
   next();
 });

@@ -248,8 +248,12 @@ router.get('/user', auth, async (req, res) => {
       // Add available spots
       teamObj.availableSpots = (team.maxMembers || 5) - teamObj.currentMemberCount;
       
-      // Add user role
-      teamObj.userRole = team.captain._id.toString() === userId.toString() ? 'captain' : 'member';
+      // Add user role - check if captain exists
+      if (team.captain && team.captain._id) {
+        teamObj.userRole = team.captain._id.toString() === userId.toString() ? 'captain' : 'member';
+      } else {
+        teamObj.userRole = 'member'; // Default to member if captain is null
+      }
       
       return teamObj;
     });
@@ -444,6 +448,14 @@ router.post('/:id/add-member', auth, [
       });
     }
 
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
+      });
+    }
+
     // Check if user is the captain
     if (team.captain.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -541,6 +553,14 @@ router.put('/:id', [
       });
     }
 
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
+      });
+    }
+
     // Check if user is the captain
     if (!team.captain.equals(req.user._id)) {
       return res.status(403).json({
@@ -589,6 +609,14 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Team not found'
+      });
+    }
+
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
       });
     }
 
@@ -658,6 +686,14 @@ router.post('/:teamId/join-request', auth, async (req, res) => {
       });
     }
 
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
+      });
+    }
+
     // Get user info
     const user = await User.findById(userId).select('name username email profileImage');
     if (!user) {
@@ -722,6 +758,14 @@ router.post('/:teamId/approve-request', auth, async (req, res) => {
       });
     }
 
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
+      });
+    }
+
     if (team.captain.toString() !== captainId.toString()) {
       return res.status(403).json({
         success: false,
@@ -781,6 +825,14 @@ router.post('/:teamId/reject-request', auth, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Team not found'
+      });
+    }
+
+    // Check if team has a captain
+    if (!team.captain) {
+      return res.status(400).json({
+        success: false,
+        message: 'This team has no captain assigned'
       });
     }
 
