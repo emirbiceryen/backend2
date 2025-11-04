@@ -544,17 +544,30 @@ router.get('/:userId/gallery', auth, async (req, res) => {
     }
 
     // Combine profile image and gallery
-    const allImages = [user.profileImage, ...user.gallery].filter(Boolean);
+    const gallery = user.gallery || [];
+    const allImages = [user.profileImage, ...gallery].filter(Boolean);
+
+    // Format image URLs
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
+    
+    const formattedImages = allImages.map(image => {
+      if (!image) return null;
+      return image.startsWith('http') ? image : `${host}${image}`;
+    }).filter(Boolean);
 
     res.json({
       success: true,
-      gallery: allImages
+      gallery: formattedImages
     });
   } catch (error) {
     console.error('Error fetching user gallery:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Error fetching user gallery'
+      message: 'Error fetching user gallery',
+      error: error.message
     });
   }
 });
