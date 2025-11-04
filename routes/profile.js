@@ -151,7 +151,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           }
         } catch (e) {
           // If not JSON, treat as single hobby string
-          hobbiesArray = [hobbies];
+        hobbiesArray = [hobbies];
         }
       } else if (Array.isArray(hobbies)) {
         hobbiesArray = hobbies;
@@ -182,20 +182,33 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       console.log('No file uploaded');
     }
     
-    if (location !== undefined && location) {
-      // Handle location as string (from FormData) or object
-      let locationObj = location;
-      if (typeof location === 'string') {
-        try {
-          locationObj = JSON.parse(location);
-        } catch (e) {
-          console.log('Location is not valid JSON, skipping');
-          locationObj = null;
+    if (location !== undefined && location !== null) {
+      try {
+        // Handle location as string (from JSON.stringify) or object
+        let locationObj = location;
+        if (typeof location === 'string') {
+          try {
+            locationObj = JSON.parse(location);
+          } catch (e) {
+            console.log('Location is not valid JSON string, trying to parse as object:', e.message);
+            locationObj = null;
+          }
         }
-      }
-      
-      if (locationObj && (locationObj.city || locationObj.state || locationObj.country)) {
-        updateData.location = locationObj;
+        
+        // If locationObj is valid object with at least one property
+        if (locationObj && typeof locationObj === 'object' && (locationObj.city || locationObj.state || locationObj.country)) {
+          updateData.location = {
+            city: locationObj.city || '',
+            state: locationObj.state || '',
+            country: locationObj.country || ''
+          };
+          console.log('Location set to:', updateData.location);
+        } else {
+          console.log('Location object is invalid or empty, skipping');
+        }
+      } catch (error) {
+        console.error('Error processing location:', error);
+        // Don't fail the entire request if location parsing fails
       }
     }
     if (age !== undefined) updateData.age = age;
@@ -248,7 +261,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     
     // Only set isProfileComplete if we're actually updating it
     if (Object.keys(updateData).length > 0) {
-      updateData.isProfileComplete = isComplete;
+    updateData.isProfileComplete = isComplete;
     }
 
     console.log('Final updateData:', updateData);
@@ -302,11 +315,31 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       });
     }
 
-    const user = await User.findByIdAndUpdate(
+    let user;
+    try {
+      user = await User.findByIdAndUpdate(
       req.user._id,
       updateData,
       { new: true, runValidators: true }
     ).populate('hobbies', 'name description icon');
+    } catch (validationError) {
+      console.error('Validation error:', validationError);
+      console.error('Validation error details:', validationError.message);
+      console.error('Validation error stack:', validationError.stack);
+      
+      // Return more specific error message
+      if (validationError.name === 'ValidationError') {
+        const errors = Object.values(validationError.errors).map((err) => err.message);
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: errors,
+          validationError: process.env.NODE_ENV === 'development' ? validationError.message : undefined
+        });
+      }
+      
+      throw validationError; // Re-throw if it's not a validation error
+    }
 
     if (!user) {
       return res.status(404).json({ 
@@ -347,13 +380,25 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating profile:', error);
-    console.error('Error details:', error.message);
+    console.error('=== PROFILE UPDATE ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    console.error('Error details:', error);
+    
+    // Return more detailed error information
     res.status(500).json({
       success: false,
       message: 'Server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message,
+      errorName: error.name,
+      // Include validation errors if present
+      ...(error.errors && {
+        validationErrors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      })
     });
   }
 });
@@ -411,9 +456,9 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
 
   } catch (error) {
     console.error('Error uploading profile image:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
     });
   }
 });
@@ -451,9 +496,9 @@ router.delete('/me', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting account:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
     });
   }
 });
