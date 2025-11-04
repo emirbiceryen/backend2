@@ -131,8 +131,16 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       // Handle hobbies from FormData (array) or JSON (array)
       let hobbiesArray = hobbies;
       if (typeof hobbies === 'string') {
-        // If it's a single string, convert to array
-        hobbiesArray = [hobbies];
+        // Try to parse as JSON array first
+        try {
+          hobbiesArray = JSON.parse(hobbies);
+          if (!Array.isArray(hobbiesArray)) {
+            hobbiesArray = [hobbiesArray];
+          }
+        } catch (e) {
+          // If not JSON, treat as single hobby string
+          hobbiesArray = [hobbies];
+        }
       } else if (Array.isArray(hobbies)) {
         hobbiesArray = hobbies;
       }
@@ -162,8 +170,21 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       console.log('No file uploaded');
     }
     
-    if (location !== undefined && location && (location.city || location.state || location.country)) {
-      updateData.location = location;
+    if (location !== undefined && location) {
+      // Handle location as string (from FormData) or object
+      let locationObj = location;
+      if (typeof location === 'string') {
+        try {
+          locationObj = JSON.parse(location);
+        } catch (e) {
+          console.log('Location is not valid JSON, skipping');
+          locationObj = null;
+        }
+      }
+      
+      if (locationObj && (locationObj.city || locationObj.state || locationObj.country)) {
+        updateData.location = locationObj;
+      }
     }
     if (age !== undefined) updateData.age = age;
     if (birthDate !== undefined) {
@@ -196,9 +217,11 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     }
 
     // Check if profile is complete (hobbies, age, and profile image)
-    const hasHobbies = hobbies && hobbies.length > 0;
-    const hasAge = age !== undefined && age !== null;
-    const hasProfileImage = req.file || currentUser.profileImage;
+    // Use updated hobbies if provided, otherwise use current user's hobbies
+    const finalHobbies = updateData.hobbies || currentUser.hobbies || [];
+    const hasHobbies = Array.isArray(finalHobbies) && finalHobbies.length > 0;
+    const hasAge = updateData.age !== undefined && updateData.age !== null;
+    const hasProfileImage = updateData.profileImage || currentUser.profileImage;
     const isComplete = !!(firstName && lastName && hasHobbies && hasAge && hasProfileImage);
     updateData.isProfileComplete = isComplete;
 
