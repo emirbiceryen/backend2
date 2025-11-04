@@ -26,6 +26,21 @@ router.get('/potential', auth, async (req, res) => {
       match.user1.equals(currentUser._id) ? match.user2 : match.user1
     );
     
+    // Get current user with populated hobbies
+    const currentUserWithHobbies = await User.findById(currentUser._id)
+      .populate('hobbies', '_id name')
+      .select('hobbies hobbySkillLevels');
+    
+    if (!currentUserWithHobbies || !currentUserWithHobbies.hobbies || currentUserWithHobbies.hobbies.length === 0) {
+      return res.json({
+        success: true,
+        matches: []
+      });
+    }
+
+    // Get current user's hobby IDs
+    const currentUserHobbyIds = currentUserWithHobbies.hobbies.map(h => h._id.toString());
+
     // Get users who have hobbies, are not the current user, and haven't been rejected
     const potentialMatches = await User.find({
       _id: { 
@@ -34,13 +49,15 @@ router.get('/potential', auth, async (req, res) => {
       },
       hobbies: { $exists: true, $ne: [] }
     })
+    .populate('hobbies', '_id name')
     .select('firstName lastName name bio location age hobbies hobbySkillLevels profileImage averageRating totalRatings')
     .limit(10);
 
     console.log('=== MATCHING DEBUG ===');
     console.log('Current user ID:', currentUser._id);
     console.log('Current user name:', currentUser.name);
-    console.log('Current user hobbies:', currentUser.hobbies);
+    console.log('Current user hobbies:', currentUserWithHobbies.hobbies);
+    console.log('Current user hobby IDs:', currentUserHobbyIds);
     console.log('Rejected user IDs:', rejectedUserIds);
     console.log('Found potential matches:', potentialMatches.length);
     potentialMatches.forEach(match => {
@@ -53,18 +70,18 @@ router.get('/potential', auth, async (req, res) => {
     // Calculate shared hobbies and filter matches
     const matchesWithSharedHobbies = potentialMatches
       .map(user => {
-        // Get current user's hobby IDs
-        const currentUserHobbyIds = currentUser.hobbies || [];
-        // Get other user's hobby IDs
-        const userHobbies = user.hobbies || [];
+        // Get other user's hobby IDs (populated or string IDs)
+        const userHobbyIds = (user.hobbies || []).map(h => 
+          typeof h === 'object' && h._id ? h._id.toString() : h.toString()
+        );
         
         console.log(`Checking user ${user.name}:`);
         console.log(`  Current user hobbies:`, currentUserHobbyIds);
-        console.log(`  Other user hobbies:`, userHobbies);
+        console.log(`  Other user hobbies:`, userHobbyIds);
         
         // Find shared hobby IDs
         const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
-          userHobbies.includes(hobbyId)
+          userHobbyIds.includes(hobbyId)
         );
         
         console.log(`  Shared hobbies:`, sharedHobbyIds);
@@ -101,9 +118,21 @@ router.get('/potential', auth, async (req, res) => {
 
       // Get skill level for the first shared hobby (the one that will be displayed)
       const firstSharedHobbyId = match.sharedHobbies[0];
-      const sharedHobbySkillLevel = match.hobbySkillLevels && firstSharedHobbyId 
-        ? match.hobbySkillLevels.get(firstSharedHobbyId) 
-        : null;
+      let sharedHobbySkillLevel = null;
+      
+      if (match.hobbySkillLevels && firstSharedHobbyId) {
+        try {
+          // Check if hobbySkillLevels is a Map or object
+          if (match.hobbySkillLevels instanceof Map) {
+            sharedHobbySkillLevel = match.hobbySkillLevels.get(firstSharedHobbyId.toString());
+          } else if (typeof match.hobbySkillLevels === 'object' && match.hobbySkillLevels !== null) {
+            sharedHobbySkillLevel = match.hobbySkillLevels[firstSharedHobbyId.toString()];
+          }
+        } catch (e) {
+          console.error('Error getting skill level:', e);
+          sharedHobbySkillLevel = null;
+        }
+      }
 
       return {
         ...match,
