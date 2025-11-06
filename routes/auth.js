@@ -122,7 +122,7 @@ router.post('/signup', [
       ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
       : null;
 
-    const userData = {
+    const userResponse = {
       ...user.toObject(),
       profileImage: formattedProfileImage
     };
@@ -131,7 +131,7 @@ router.post('/signup', [
       success: true,
       message: 'User registered successfully',
       token,
-      user: userData
+      user: userResponse
     });
   } catch (error) {
     console.error('Signup error:', error);
