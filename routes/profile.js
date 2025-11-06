@@ -42,7 +42,8 @@ router.get('/me', auth, async (req, res) => {
         age: user.age,
         averageRating: user.averageRating,
         totalRatings: user.totalRatings,
-        isProfileComplete: user.isProfileComplete
+        isProfileComplete: user.isProfileComplete,
+        preferredLanguage: user.preferredLanguage || 'en'
       }
     });
 
@@ -118,7 +119,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       hobbies,
       location,
       age,
-      birthDate
+      birthDate,
+      preferredLanguage
     } = req.body;
 
     const updateData = {};
@@ -212,6 +214,9 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       }
     }
     if (age !== undefined) updateData.age = age;
+    if (preferredLanguage !== undefined && ['en', 'es', 'de', 'tr'].includes(preferredLanguage)) {
+      updateData.preferredLanguage = preferredLanguage;
+    }
     if (birthDate !== undefined) {
       console.log('Processing birthDate:', birthDate);
       updateData.birthDate = birthDate;
@@ -310,7 +315,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           age: user.age,
           averageRating: user.averageRating,
           totalRatings: user.totalRatings,
-          isProfileComplete: user.isProfileComplete
+          isProfileComplete: user.isProfileComplete,
+          preferredLanguage: user.preferredLanguage || 'en'
         }
       });
     }
@@ -375,7 +381,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
         age: user.age,
         averageRating: user.averageRating,
         totalRatings: user.totalRatings,
-        isProfileComplete: user.isProfileComplete
+        isProfileComplete: user.isProfileComplete,
+        preferredLanguage: user.preferredLanguage || 'en'
       }
     });
 

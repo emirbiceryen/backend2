@@ -92,6 +92,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  preferredLanguage: {
+    type: String,
+    enum: ['en', 'es', 'de', 'tr'],
+    default: 'en'
+  },
   lastActive: {
     type: Date,
     default: Date.now
