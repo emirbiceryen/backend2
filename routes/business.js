@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
-const ForumPost = require('../models/ForumPost');
+const Post = require('../models/Post');
 
 // Get business events
 router.get('/events', auth, async (req, res) => {
@@ -15,13 +15,12 @@ router.get('/events', auth, async (req, res) => {
       });
     }
 
-    const events = await ForumPost.find({
-      author: req.user._id,
+    const events = await Post.find({
+      authorId: req.user._id,
       isEvent: true,
       isBusinessEvent: true
     })
-    .populate('author', 'businessName businessType profileImage')
-    .populate('eventDetails.currentParticipants', 'firstName lastName name profileImage')
+    .populate('authorId', 'businessName businessType profileImage accountType')
     .sort({ createdAt: -1 });
 
     res.json({
@@ -66,8 +65,13 @@ router.post('/events', auth, async (req, res) => {
       });
     }
 
-    const event = new ForumPost({
-      author: req.user._id,
+    // Get business name for authorName
+    const businessUser = await User.findById(req.user._id);
+    const authorName = businessUser.businessName || businessUser.name;
+
+    const event = new Post({
+      authorId: req.user._id,
+      authorName: authorName,
       title,
       content: content || description || '',
       category: 'event',
@@ -75,18 +79,17 @@ router.post('/events', auth, async (req, res) => {
       isBusinessEvent: true,
       createdByType: 'business',
       eventDetails: {
-        title,
         date: new Date(date),
         location,
-        description: description || '',
         maxParticipants: maxParticipants || 50,
+        currentParticipants: 0,
         hobbyType: hobbyType || '',
         price: price || ''
       }
     });
 
     await event.save();
-    await event.populate('author', 'businessName businessType profileImage');
+    await event.populate('authorId', 'businessName businessType profileImage accountType');
 
     res.status(201).json({
       success: true,
@@ -115,8 +118,7 @@ router.get('/participants/:eventId', auth, async (req, res) => {
 
     const { eventId } = req.params;
 
-    const event = await ForumPost.findById(eventId)
-      .populate('eventDetails.currentParticipants', 'firstName lastName name profileImage email username bio age location hobbies');
+    const event = await Post.findById(eventId);
 
     if (!event) {
       return res.status(404).json({
@@ -126,16 +128,24 @@ router.get('/participants/:eventId', auth, async (req, res) => {
     }
 
     // Check if the event belongs to this business
-    if (event.author.toString() !== req.user._id.toString()) {
+    if (event.authorId.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view this event'
       });
     }
 
+    // Get participants from applications
+    const participantIds = event.eventDetails.applications
+      .filter((app: any) => app.status === 'approved')
+      .map((app: any) => app.userId);
+
+    const participants = await User.find({ _id: { $in: participantIds } })
+      .select('firstName lastName name profileImage email username bio age location hobbies averageRating totalRatings');
+
     res.json({
       success: true,
-      participants: event.eventDetails.currentParticipants || []
+      participants: participants || []
     });
   } catch (error) {
     console.error('Error fetching event participants:', error);
