@@ -61,7 +61,15 @@ const eventDetailsSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  applications: [eventApplicationSchema]
+  applications: [eventApplicationSchema],
+  hobbyType: {
+    type: String,
+    trim: true
+  },
+  price: {
+    type: String,
+    trim: true
+  }
 });
 
 const pollOptionSchema = new mongoose.Schema({
@@ -136,6 +144,15 @@ const postSchema = new mongoose.Schema({
     default: false
   },
   eventDetails: eventDetailsSchema,
+  createdByType: {
+    type: String,
+    enum: ['individual', 'business'],
+    default: 'individual'
+  },
+  isBusinessEvent: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

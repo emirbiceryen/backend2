@@ -52,6 +52,7 @@ const profileRoutes = require('./routes/profile');
 const ratingRoutes = require('./routes/ratings');
 const subscriptionRoutes = require('./routes/subscription');
 const teamRoutes = require('./routes/teams');
+const businessRoutes = require('./routes/business');
 
 // WebSocket connection management
 const connectedUsers = new Map();
@@ -173,6 +174,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/business', businessRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -117,7 +117,36 @@ const userSchema = new mongoose.Schema({
   captainOfTeams: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
-  }]
+  }],
+  accountType: {
+    type: String,
+    enum: ['individual', 'business'],
+    default: 'individual'
+  },
+  businessName: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Business name cannot be more than 100 characters']
+  },
+  businessType: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Business type cannot be more than 50 characters']
+  },
+  contactInfo: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Contact info cannot be more than 200 characters']
+  },
+  workingHours: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Working hours cannot be more than 50 characters']
+  },
+  description: {
+    type: String,
+    maxlength: [1000, 'Description cannot be more than 1000 characters']
+  }
 }, {
   timestamps: true
 });

@@ -31,7 +31,19 @@ router.post('/signup', [
       });
     }
 
-    const { name, email, username, password } = req.body;
+    const { 
+      name, 
+      email, 
+      username, 
+      password, 
+      accountType,
+      businessName,
+      businessType,
+      contactInfo,
+      workingHours,
+      description,
+      location
+    } = req.body;
 
     // Check if user already exists by email
     const existingUserByEmail = await User.findOne({ email });
@@ -52,14 +64,38 @@ router.post('/signup', [
     }
 
     // Create new user
-    console.log('Creating user with data:', { name, email, username: username.toLowerCase() });
+    console.log('Creating user with data:', { name, email, username: username.toLowerCase(), accountType });
     
-    const user = new User({
+    const userData = {
       name,
       email,
       username: username.toLowerCase(),
-      password
-    });
+      password,
+      accountType: accountType || 'individual'
+    };
+
+    // Add business fields if accountType is business
+    if (accountType === 'business') {
+      if (businessName) userData.businessName = businessName;
+      if (businessType) userData.businessType = businessType;
+      if (contactInfo) userData.contactInfo = contactInfo;
+      if (workingHours) userData.workingHours = workingHours;
+      if (description) userData.description = description;
+      if (location) {
+        if (typeof location === 'object') {
+          userData.location = location;
+        } else if (typeof location === 'string') {
+          try {
+            userData.location = JSON.parse(location);
+          } catch (e) {
+            // If parsing fails, set as city only
+            userData.location = { city: location, state: '', country: '' };
+          }
+        }
+      }
+    }
+    
+    const user = new User(userData);
 
     console.log('User object created, saving to database...');
     await user.save();

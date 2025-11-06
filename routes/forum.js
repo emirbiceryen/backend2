@@ -21,7 +21,7 @@ router.get('/posts', auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('authorId', 'name email firstName lastName profileImage');
+      .populate('authorId', 'name email firstName lastName profileImage accountType businessName businessType');
 
     console.log('Found posts:', posts.length);
     console.log('First post author:', posts[0]?.authorId);
@@ -35,10 +35,13 @@ router.get('/posts', auth, async (req, res) => {
       const po = p.toObject();
       const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
 
+      // For business accounts, use businessName; for individuals, use name
       const authorName = po.authorName || (populatedAuthor ? (
-        populatedAuthor.firstName && populatedAuthor.lastName
-          ? `${populatedAuthor.firstName} ${populatedAuthor.lastName}`
-          : populatedAuthor.name
+        populatedAuthor.accountType === 'business' && populatedAuthor.businessName
+          ? populatedAuthor.businessName
+          : (populatedAuthor.firstName && populatedAuthor.lastName
+            ? `${populatedAuthor.firstName} ${populatedAuthor.lastName}`
+            : populatedAuthor.name)
       ) : undefined);
 
       const rawAvatar = po.authorAvatar || (populatedAuthor ? populatedAuthor.profileImage : undefined);
@@ -93,6 +96,12 @@ router.get('/posts', auth, async (req, res) => {
         authorName,
         authorAvatar,
         media,
+        isBusinessEvent: po.isBusinessEvent || (populatedAuthor && populatedAuthor.accountType === 'business'),
+        createdByType: po.createdByType || (populatedAuthor && populatedAuthor.accountType === 'business' ? 'business' : 'individual'),
+        businessInfo: populatedAuthor && populatedAuthor.accountType === 'business' ? {
+          businessName: populatedAuthor.businessName,
+          businessType: populatedAuthor.businessType
+        } : undefined,
         eventDetails: po.isEvent && po.eventDetails ? {
           ...po.eventDetails,
           participants

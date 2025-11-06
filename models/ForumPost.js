@@ -62,7 +62,18 @@ const forumPostSchema = new mongoose.Schema({
     currentParticipants: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
-    }]
+    }],
+    hobbyType: String,
+    price: String
+  },
+  createdByType: {
+    type: String,
+    enum: ['individual', 'business'],
+    default: 'individual'
+  },
+  isBusinessEvent: {
+    type: Boolean,
+    default: false
   },
   isActive: {
     type: Boolean,
