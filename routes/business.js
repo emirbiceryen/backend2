@@ -136,9 +136,13 @@ router.get('/participants/:eventId', auth, async (req, res) => {
     }
 
     // Get participants from applications
-    const participantIds = event.eventDetails.applications
-      .filter((app: any) => app.status === 'approved')
-      .map((app: any) => app.userId);
+    const applications = (event.eventDetails && Array.isArray(event.eventDetails.applications))
+      ? event.eventDetails.applications
+      : [];
+
+    const participantIds = applications
+      .filter((app) => app.status === 'approved')
+      .map((app) => app.userId);
 
     const participants = await User.find({ _id: { $in: participantIds } })
       .select('firstName lastName name profileImage email username bio age location hobbies averageRating totalRatings');
