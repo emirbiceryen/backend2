@@ -69,22 +69,40 @@ router.post('/events', auth, async (req, res) => {
     const businessUser = await User.findById(req.user._id);
     const authorName = businessUser.businessName || businessUser.name;
 
+    const eventContent = (content && content.trim()) || (description && description.trim()) || `Event at ${location}`;
+    const parsedMaxParticipants = Number.isFinite(Number(maxParticipants)) && Number(maxParticipants) > 0
+      ? Number(maxParticipants)
+      : 50;
+    let eventDate;
+    try {
+      eventDate = new Date(date);
+      if (isNaN(eventDate.getTime())) {
+        throw new Error('Invalid date');
+      }
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid event date'
+      });
+    }
+
     const event = new Post({
       authorId: req.user._id,
       authorName: authorName,
       title,
-      content: content || description || '',
+      content: eventContent,
       category: 'event',
       isEvent: true,
       isBusinessEvent: true,
       createdByType: 'business',
       eventDetails: {
-        date: new Date(date),
+        date: eventDate,
         location,
-        maxParticipants: maxParticipants || 50,
+        maxParticipants: parsedMaxParticipants,
         currentParticipants: 0,
         hobbyType: hobbyType || '',
-        price: price || ''
+        price: price || '',
+        applications: []
       }
     });
 
