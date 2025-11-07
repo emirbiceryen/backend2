@@ -73,13 +73,38 @@ router.post('/events', auth, async (req, res) => {
     const parsedMaxParticipants = Number.isFinite(Number(maxParticipants)) && Number(maxParticipants) > 0
       ? Number(maxParticipants)
       : 50;
-    let eventDate;
-    try {
-      eventDate = new Date(date);
-      if (isNaN(eventDate.getTime())) {
-        throw new Error('Invalid date');
+    const normalizeDateInput = (input) => {
+      if (!input || typeof input !== 'string') return null;
+      const trimmed = input.trim();
+
+      const tryParse = (value) => {
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      // Try raw string
+      let parsedDate = tryParse(trimmed);
+      if (parsedDate) return parsedDate;
+
+      // Replace space between date/time with 'T'
+      if (trimmed.includes(' ')) {
+        parsedDate = tryParse(trimmed.replace(' ', 'T'));
+        if (parsedDate) return parsedDate;
       }
-    } catch (error) {
+
+      // Handle DD.MM.YYYY HH:MM or DD/MM/YYYY variants
+      const match = trimmed.match(/^(\d{2})[./-](\d{2})[./-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+      if (match) {
+        const [, day, month, year, hour = '12', minute = '00'] = match;
+        parsedDate = tryParse(`${year}-${month}-${day}T${hour.padStart(2, '0')}:${minute}`);
+        if (parsedDate) return parsedDate;
+      }
+
+      return null;
+    };
+
+    const eventDate = normalizeDateInput(date);
+    if (!eventDate) {
       return res.status(400).json({
         success: false,
         message: 'Invalid event date'
