@@ -146,6 +146,22 @@ const userSchema = new mongoose.Schema({
   description: {
     type: String,
     maxlength: [1000, 'Description cannot be more than 1000 characters']
+  },
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true

@@ -1,10 +1,15 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+
+const MAX_LOGIN_ATTEMPTS = 7;
+const LOGIN_LOCK_TIME = 60 * 1000; // 1 minute
+const RESET_TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -173,13 +178,50 @@ router.post('/login', [
       });
     }
 
+    const now = Date.now();
+
+    // If lock has expired, reset counters
+    if (user.lockUntil && user.lockUntil.getTime() <= now) {
+      user.lockUntil = null;
+      user.loginAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    // Check if user is currently locked
+    if (user.lockUntil && user.lockUntil.getTime() > now) {
+      const remainingSeconds = Math.ceil((user.lockUntil.getTime() - now) / 1000);
+      return res.status(429).json({
+        success: false,
+        message: `Too many failed login attempts. Please try again in ${remainingSeconds} seconds.`
+      });
+    }
+
     // Check password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(400).json({
+      user.loginAttempts = (user.loginAttempts || 0) + 1;
+
+      if (user.loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+        user.lockUntil = new Date(now + LOGIN_LOCK_TIME);
+        user.loginAttempts = 0;
+      }
+
+      await user.save({ validateBeforeSave: false });
+
+      const locked = user.lockUntil && user.lockUntil.getTime() > now;
+      return res.status(locked ? 429 : 400).json({
         success: false,
-        message: 'Invalid credentials'
+        message: locked
+          ? 'Too many failed login attempts. Please try again later.'
+          : 'Invalid credentials'
       });
+    }
+
+    // Successful login - reset attempts
+    if (user.loginAttempts !== 0 || user.lockUntil) {
+      user.loginAttempts = 0;
+      user.lockUntil = null;
+      await user.save({ validateBeforeSave: false });
     }
 
     // Generate token
@@ -212,6 +254,110 @@ router.post('/login', [
     res.status(500).json({
       success: false,
       message: 'Server error during login'
+    });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Generate password reset token
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Please enter a valid email')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      // For security, don't reveal that the email doesn't exist
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset token has been generated.'
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_EXPIRY);
+    await user.save({ validateBeforeSave: false });
+
+    // TODO: Send email with reset link containing resetToken
+
+    res.json({
+      success: true,
+      message: 'Password reset token generated successfully.',
+      // Return the raw token for now until email service is configured
+      resetToken
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during password reset'
+    });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password using token
+// @access  Public
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const { token, password } = req.body;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    user.password = password;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successful'
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during password reset'
     });
   }
 });
