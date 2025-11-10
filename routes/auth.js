@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
@@ -10,6 +11,34 @@ const router = express.Router();
 const MAX_LOGIN_ATTEMPTS = 7;
 const LOGIN_LOCK_TIME = 60 * 1000; // 1 minute
 const RESET_TOKEN_EXPIRY = 60 * 60 * 1000; // 1 hour
+const googleClientIds = (process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID || '')
+  .split(',')
+  .map(id => id.trim())
+  .filter(Boolean);
+
+const googleOAuthClient = googleClientIds.length ? new OAuth2Client() : null;
+
+const generateUniqueUsername = async (baseName, fallback = 'user') => {
+  const sanitize = (value) => {
+    if (!value) return '';
+    return value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+  };
+
+  let base = sanitize(baseName);
+  if (!base) {
+    base = `${fallback}${Math.floor(Math.random() * 10000)}`;
+  }
+
+  let username = base;
+  let suffix = 1;
+
+  while (await User.findOne({ username })) {
+    username = `${base}${suffix}`;
+    suffix += 1;
+  }
+
+  return username;
+};
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -358,6 +387,119 @@ router.post('/reset-password', [
     res.status(500).json({
       success: false,
       message: 'Server error during password reset'
+    });
+  }
+});
+
+// @route   POST /api/auth/google
+// @desc    Login or sign up using Google ID token
+// @access  Public
+router.post('/google', [
+  body('idToken').notEmpty().withMessage('Google ID token is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    if (!googleOAuthClient || googleClientIds.length === 0) {
+      return res.status(503).json({
+        success: false,
+        message: 'Google authentication is not configured.'
+      });
+    }
+
+    const { idToken } = req.body;
+
+    let ticket;
+    try {
+      ticket = await googleOAuthClient.verifyIdToken({
+        idToken,
+        audience: googleClientIds,
+      });
+    } catch (error) {
+      console.error('Google token verification error:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Google token'
+      });
+    }
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google account does not have an email address'
+      });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      const name = payload?.name || email;
+      const givenName = payload?.given_name || '';
+      const familyName = payload?.family_name || '';
+      const preferredUsername = payload?.email ? payload.email.split('@')[0] : name;
+      const username = await generateUniqueUsername(preferredUsername, 'googleuser');
+
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+
+      user = new User({
+        name,
+        firstName: givenName,
+        lastName: familyName,
+        email,
+        username,
+        password: randomPassword,
+        profileImage: payload?.picture || null,
+        accountType: 'individual',
+        isProfileComplete: false,
+      });
+
+      await user.save();
+    } else if (!user.profileImage && payload?.picture) {
+      user.profileImage = payload.picture;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    // Reset login attempts on successful external login
+    user.loginAttempts = 0;
+    user.lockUntil = null;
+    await user.save({ validateBeforeSave: false });
+
+    const token = generateToken(user._id);
+    await user.populate('hobbies', 'name');
+
+    const host = process.env.NODE_ENV === 'production' 
+      ? 'https://backend-production-7063.up.railway.app'
+      : `${req.protocol}://${req.get('host')}`;
+    const formattedProfileImage = user.profileImage 
+      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      : null;
+
+    const userData = {
+      ...user.toObject(),
+      profileImage: formattedProfileImage
+    };
+
+    return res.json({
+      success: true,
+      message: 'Login successful',
+      token,
+      user: userData
+    });
+  } catch (error) {
+    console.error('Google authentication error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during Google authentication'
     });
   }
 });
