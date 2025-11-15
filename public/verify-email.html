@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification - Hubi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 36px;
+            font-weight: bold;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .message {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .button {
+            display: inline-block;
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        .button:active {
+            transform: translateY(0);
+        }
+        .open-app {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #f0f0f0;
+            color: #333;
+            text-decoration: none;
+            border-radius: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">H</div>
+        <h1>Email Verification</h1>
+        <div id="status" class="status loading">Verifying your email...</div>
+        <p class="message" id="message">Please wait while we verify your email address.</p>
+        <a href="#" id="openApp" class="open-app" style="display: none;">Open Hubi App</a>
+    </div>
+
+    <script>
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        const statusDiv = document.getElementById('status');
+        const messageDiv = document.getElementById('message');
+        const openAppLink = document.getElementById('openApp');
+
+        if (!token) {
+            statusDiv.className = 'status error';
+            statusDiv.textContent = 'Invalid Verification Link';
+            messageDiv.textContent = 'The verification link is missing a token. Please check your email and try again.';
+        } else {
+            // Verify email via API
+            fetch('/api/auth/verify-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: token })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✓ Email Verified Successfully!';
+                    messageDiv.textContent = 'Your email has been verified. You can now use all features of Hubi.';
+                    openAppLink.style.display = 'inline-block';
+                    openAppLink.href = 'hubi://verified';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = 'Verification Failed';
+                    messageDiv.textContent = data.message || 'The verification link is invalid or has expired. Please request a new verification email.';
+                }
+            })
+            .catch(error => {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Verification Error';
+                messageDiv.textContent = 'An error occurred while verifying your email. Please try again later.';
+                console.error('Verification error:', error);
+            });
+        }
+    </script>
+</body>
+</html>
+

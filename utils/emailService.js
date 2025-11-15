@@ -98,7 +98,11 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @returns {Promise}
  */
 const sendVerificationEmail = async (user, token) => {
-  const verificationUrl = `${emailConfig.baseUrl}/verify-email?token=${token}`;
+  // Use backend URL if baseUrl is not set (for mobile app)
+  const baseUrl = emailConfig.baseUrl || (process.env.NODE_ENV === 'production' 
+    ? 'https://backend-production-7063.up.railway.app'
+    : 'http://localhost:5000');
+  const verificationUrl = `${baseUrl}/verify-email.html?token=${token}`;
   
   const html = `
     <!DOCTYPE html>
