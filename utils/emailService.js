@@ -18,13 +18,16 @@ const initializeTransporter = () => {
     }
 
     try {
+      // Clean SMTP password (remove spaces - Gmail App Passwords may have spaces)
+      const cleanPassword = emailConfig.smtp.pass ? emailConfig.smtp.pass.replace(/\s+/g, '') : '';
+      
       transporter = nodemailer.createTransport({
         host: emailConfig.smtp.host,
         port: emailConfig.smtp.port,
         secure: emailConfig.smtp.secure, // true for 465, false for other ports
         auth: {
           user: emailConfig.smtp.user,
-          pass: emailConfig.smtp.pass,
+          pass: cleanPassword,
         },
       });
 
