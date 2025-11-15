@@ -367,6 +367,12 @@ module.exports = {
   sendBusinessEventApplicationStatusEmail,
   sendMatchRequestEmail,
   sendTeamJoinRequestEmail,
-  isEmailServiceEnabled: () => emailConfig.enabled && transporter !== null,
+  isEmailServiceEnabled: () => {
+    if (!emailConfig.enabled) return false;
+    if (emailConfig.provider === 'resend') {
+      return resendApiKey !== null;
+    }
+    return transporter !== null;
+  },
 };
 
