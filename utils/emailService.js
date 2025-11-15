@@ -29,6 +29,19 @@ const initializeTransporter = () => {
           user: emailConfig.smtp.user,
           pass: cleanPassword,
         },
+        // Connection timeout settings for Railway
+        connectionTimeout: 60000, // 60 seconds
+        greetingTimeout: 30000, // 30 seconds
+        socketTimeout: 60000, // 60 seconds
+        // TLS options for Gmail
+        requireTLS: !emailConfig.smtp.secure, // Require TLS for port 587
+        tls: {
+          rejectUnauthorized: false // Allow self-signed certificates (for Railway)
+        },
+        // Pool connections for better performance
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 3
       });
 
       // Verify connection asynchronously (don't block server startup)
