@@ -97,13 +97,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
  * @param {string} token - Verification token
  * @returns {Promise}
  */
-const sendVerificationEmail = async (user, token) => {
-  // Use backend URL if baseUrl is not set (for mobile app)
-  const baseUrl = emailConfig.baseUrl || (process.env.NODE_ENV === 'production' 
-    ? 'https://backend-production-7063.up.railway.app'
-    : 'http://localhost:5000');
-  const verificationUrl = `${baseUrl}/verify-email.html?token=${token}`;
-  
+const sendVerificationEmail = async (user, code) => {
   const html = `
     <!DOCTYPE html>
     <html>
@@ -114,7 +108,18 @@ const sendVerificationEmail = async (user, token) => {
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background-color: #2E7D32; color: white; padding: 20px; text-align: center; }
         .content { padding: 20px; background-color: #f9f9f9; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .code-box { 
+          background-color: #ffffff; 
+          border: 2px solid #4CAF50; 
+          border-radius: 10px; 
+          padding: 20px; 
+          text-align: center; 
+          margin: 20px 0;
+          font-size: 32px;
+          font-weight: bold;
+          letter-spacing: 8px;
+          color: #2E7D32;
+        }
         .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
       </style>
     </head>
@@ -125,14 +130,13 @@ const sendVerificationEmail = async (user, token) => {
         </div>
         <div class="content">
           <p>Hello ${user.name || user.email},</p>
-          <p>Thank you for signing up for Hubi! Please verify your email address by clicking the button below:</p>
-          <div style="text-align: center;">
-            <a href="${verificationUrl}" class="button">Verify Email Address</a>
+          <p>Thank you for signing up for Hubi! Please verify your email address using the verification code below:</p>
+          <div class="code-box">
+            ${code}
           </div>
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="word-break: break-all; color: #4CAF50;">${verificationUrl}</p>
-          <p>This link will expire in 24 hours.</p>
-          <p>If you didn't create an account with Hubi, please ignore this email.</p>
+          <p style="text-align: center; color: #666; font-size: 14px;">Enter this code in the Hubi app to verify your email address.</p>
+          <p style="color: #999; font-size: 12px; margin-top: 20px;">This code will expire in 10 minutes.</p>
+          <p style="color: #999; font-size: 12px;">If you didn't create an account with Hubi, please ignore this email.</p>
         </div>
         <div class="footer">
           <p>&copy; ${new Date().getFullYear()} Hubi. All rights reserved.</p>

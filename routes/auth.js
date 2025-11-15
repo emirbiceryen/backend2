@@ -211,11 +211,11 @@ router.post('/signup', [
 
     console.log('User object created, saving to database...');
     
-    // Generate email verification token if email verification is enabled
+    // Generate email verification code (6 digits) if email verification is enabled
     if (emailService.isEmailServiceEnabled()) {
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      user.emailVerificationToken = verificationToken;
-      user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+      user.emailVerificationToken = verificationCode;
+      user.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
       user.emailVerified = false;
     } else {
       // If email verification is disabled, mark email as verified
@@ -232,6 +232,7 @@ router.post('/signup', [
     if (emailService.isEmailServiceEnabled() && user.emailVerificationToken) {
       try {
         console.log('[Signup] Attempting to send verification email to:', user.email);
+        console.log('[Signup] Verification code:', user.emailVerificationToken);
         const emailResult = await emailService.sendVerificationEmail(user, user.emailVerificationToken);
         if (emailResult.success) {
           console.log('✅ Verification email sent successfully to:', user.email);
@@ -796,7 +797,7 @@ router.put('/profile', auth, [
  *         description: Invalid or expired token
  */
 router.post('/verify-email', [
-  body('token').notEmpty().withMessage('Verification token is required')
+  body('token').notEmpty().withMessage('Verification code is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -808,7 +809,15 @@ router.post('/verify-email', [
       });
     }
 
-    const { token } = req.body;
+    const { token } = req.body; // token is actually the 6-digit code
+
+    // Validate code format (6 digits)
+    if (!/^\d{6}$/.test(token)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid verification code format. Code must be 6 digits.'
+      });
+    }
 
     const user = await User.findOne({
       emailVerificationToken: token,
@@ -818,7 +827,7 @@ router.post('/verify-email', [
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired verification token'
+        message: 'Invalid or expired verification code'
       });
     }
 
@@ -902,15 +911,17 @@ router.post('/resend-verification', [
       });
     }
 
-    // Generate new verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    // Generate new verification code (6 digits)
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit code
+    user.emailVerificationToken = verificationCode;
+    user.emailVerificationExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
+
+    console.log('[Resend Verification] New verification code:', verificationCode);
 
     // Send verification email
     try {
-      await emailService.sendVerificationEmail(user, verificationToken);
+      await emailService.sendVerificationEmail(user, verificationCode);
       res.json({
         success: true,
         message: 'Verification email sent successfully'
