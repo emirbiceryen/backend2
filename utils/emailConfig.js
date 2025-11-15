@@ -25,8 +25,10 @@ if (emailVerificationEnabled) {
   if (!emailVerificationConfig.from) {
     missing.push('EMAIL_VERIFICATION_FROM');
   }
-  if (!emailVerificationConfig.baseUrl) {
-    missing.push('EMAIL_VERIFICATION_BASE_URL');
+  // EMAIL_VERIFICATION_BASE_URL is optional - system will use backend URL automatically
+  // Only warn if explicitly set but empty
+  if (process.env.EMAIL_VERIFICATION_BASE_URL === '') {
+    console.info('[Email Verification] EMAIL_VERIFICATION_BASE_URL is empty. Backend URL will be used automatically.');
   }
 
   if (emailVerificationConfig.provider === 'smtp') {
