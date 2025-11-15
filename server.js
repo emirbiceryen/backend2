@@ -65,15 +65,20 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Swagger documentation (only in development or if enabled)
 if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
-  const swaggerUi = require('swagger-ui-express');
-  const swaggerSpec = require('./config/swagger');
-  
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Hubi API Documentation',
-  }));
-  
-  console.log('Swagger documentation available at /api-docs');
+  try {
+    const swaggerUi = require('swagger-ui-express');
+    const swaggerSpec = require('./config/swagger');
+    
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+      customCss: '.swagger-ui .topbar { display: none }',
+      customSiteTitle: 'Hubi API Documentation',
+    }));
+    
+    console.log('Swagger documentation available at /api-docs');
+  } catch (error) {
+    console.warn('[Swagger] Failed to initialize Swagger documentation:', error.message);
+    console.warn('[Swagger] API documentation will not be available');
+  }
 }
 
 // Import routes

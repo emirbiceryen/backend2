@@ -11,32 +11,49 @@ const initializeTransporter = () => {
   }
 
   if (emailConfig.provider === 'smtp') {
-    transporter = nodemailer.createTransport({
-      host: emailConfig.smtp.host,
-      port: emailConfig.smtp.port,
-      secure: emailConfig.smtp.secure, // true for 465, false for other ports
-      auth: {
-        user: emailConfig.smtp.user,
-        pass: emailConfig.smtp.pass,
-      },
-    });
+    // Check if required SMTP config is present
+    if (!emailConfig.smtp.host || !emailConfig.smtp.port || !emailConfig.smtp.user || !emailConfig.smtp.pass) {
+      console.warn('[Email Service] SMTP configuration incomplete. Email service will not work.');
+      return null;
+    }
 
-    // Verify connection
-    transporter.verify((error, success) => {
-      if (error) {
-        console.error('[Email Service] Connection error:', error);
-      } else {
-        console.log('[Email Service] Server is ready to send emails');
-      }
-    });
+    try {
+      transporter = nodemailer.createTransport({
+        host: emailConfig.smtp.host,
+        port: emailConfig.smtp.port,
+        secure: emailConfig.smtp.secure, // true for 465, false for other ports
+        auth: {
+          user: emailConfig.smtp.user,
+          pass: emailConfig.smtp.pass,
+        },
+      });
+
+      // Verify connection asynchronously (don't block server startup)
+      transporter.verify((error, success) => {
+        if (error) {
+          console.error('[Email Service] Connection error:', error.message);
+          console.warn('[Email Service] Email sending may fail. Check SMTP configuration.');
+        } else {
+          console.log('[Email Service] Server is ready to send emails');
+        }
+      });
+    } catch (error) {
+      console.error('[Email Service] Error initializing transporter:', error.message);
+      return null;
+    }
   }
 
   return transporter;
 };
 
-// Initialize on module load
+// Initialize on module load (with error handling)
 if (emailConfig.enabled) {
-  initializeTransporter();
+  try {
+    initializeTransporter();
+  } catch (error) {
+    console.error('[Email Service] Failed to initialize:', error.message);
+    console.warn('[Email Service] Email service disabled due to initialization error');
+  }
 }
 
 /**
