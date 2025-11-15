@@ -23,6 +23,10 @@ const emailVerificationConfig = {
 };
 
 if (emailVerificationEnabled) {
+  console.log('[Email Verification] ✅ Email verification is ENABLED');
+  console.log('[Email Verification] Provider:', emailVerificationConfig.provider);
+  console.log('[Email Verification] From:', emailVerificationConfig.from);
+  
   const missing = [];
 
   if (!emailVerificationConfig.from) {
@@ -37,6 +41,9 @@ if (emailVerificationEnabled) {
   if (emailVerificationConfig.provider === 'resend') {
     if (!emailVerificationConfig.resend.apiKey) {
       missing.push('RESEND_API_KEY');
+      console.warn('[Email Verification] ❌ RESEND_API_KEY is missing!');
+    } else {
+      console.log('[Email Verification] ✅ RESEND_API_KEY is configured');
     }
   } else if (emailVerificationConfig.provider === 'smtp') {
     if (!emailVerificationConfig.smtp.host) missing.push('SMTP_HOST');
@@ -47,11 +54,13 @@ if (emailVerificationEnabled) {
 
   if (missing.length) {
     console.warn(
-      `[Email Verification] Enabled but missing required environment variables: ${missing.join(', ')}`
+      `[Email Verification] ⚠️ Missing required environment variables: ${missing.join(', ')}`
     );
+  } else {
+    console.log('[Email Verification] ✅ All required environment variables are set');
   }
 } else {
-  console.info('[Email Verification] Disabled. Set EMAIL_VERIFICATION_ENABLED=true to activate.');
+  console.info('[Email Verification] ❌ Disabled. Set EMAIL_VERIFICATION_ENABLED=true to activate.');
 }
 
 module.exports = emailVerificationConfig;

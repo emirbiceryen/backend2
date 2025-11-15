@@ -15,10 +15,12 @@ const initializeEmailService = () => {
     // Resend API
     if (!emailConfig.resend.apiKey) {
       console.warn('[Email Service] Resend API key not configured');
+      console.warn('[Email Service] RESEND_API_KEY environment variable is missing or empty');
       return null;
     }
     resendApiKey = emailConfig.resend.apiKey;
-    console.log('[Email Service] Resend API configured');
+    console.log('[Email Service] ✅ Resend API configured successfully');
+    console.log('[Email Service] Resend API Key:', resendApiKey.substring(0, 10) + '...');
     return true;
   } else if (emailConfig.provider === 'smtp') {
     // Check if required SMTP config is present
@@ -75,11 +77,15 @@ const initializeEmailService = () => {
 // Initialize on module load (with error handling)
 if (emailConfig.enabled) {
   try {
+    console.log('[Email Service] Initializing email service...');
+    console.log('[Email Service] Provider:', emailConfig.provider);
     initializeEmailService();
   } catch (error) {
     console.error('[Email Service] Failed to initialize:', error.message);
     console.warn('[Email Service] Email service disabled due to initialization error');
   }
+} else {
+  console.warn('[Email Service] Email service is disabled (EMAIL_VERIFICATION_ENABLED is not true)');
 }
 
 /**
