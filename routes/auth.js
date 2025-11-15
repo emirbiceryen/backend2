@@ -226,14 +226,24 @@ router.post('/signup', [
     console.log('User saved successfully with ID:', user._id);
 
     // Send verification email if email service is enabled
+    console.log('[Signup] Email service enabled:', emailService.isEmailServiceEnabled());
+    console.log('[Signup] User email verification token:', user.emailVerificationToken ? 'exists' : 'missing');
+    
     if (emailService.isEmailServiceEnabled() && user.emailVerificationToken) {
       try {
-        await emailService.sendVerificationEmail(user, user.emailVerificationToken);
-        console.log('Verification email sent to:', user.email);
+        console.log('[Signup] Attempting to send verification email to:', user.email);
+        const emailResult = await emailService.sendVerificationEmail(user, user.emailVerificationToken);
+        if (emailResult.success) {
+          console.log('✅ Verification email sent successfully to:', user.email);
+        } else {
+          console.error('❌ Failed to send verification email:', emailResult.message || emailResult.error);
+        }
       } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
+        console.error('❌ Error sending verification email:', emailError.message || emailError);
         // Continue even if email fails - user can request resend later
       }
+    } else {
+      console.warn('[Signup] Email service not enabled or token missing. Email not sent.');
     }
 
     // Generate token
