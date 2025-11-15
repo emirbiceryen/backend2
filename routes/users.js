@@ -18,6 +18,14 @@ const getNotificationTitle = (type) => {
       return 'Team Request Approved';
     case 'team_request_rejected':
       return 'Team Request Rejected';
+    case 'business_event_application':
+      return 'New Event Application';
+    case 'business_event_application_approved':
+      return 'Event Application Approved';
+    case 'business_event_application_rejected':
+      return 'Event Application Rejected';
+    case 'business_event_participant_joined':
+      return 'Participant Joined Event';
     default:
       return 'Notification';
   }
@@ -355,6 +363,12 @@ router.get('/notifications', auth, async (req, res) => {
             name: notification.team.name,
             sport: notification.team.sport
           } : null,
+          event: notification.event ? {
+            _id: notification.event._id,
+            title: notification.event.title,
+            date: notification.event.date
+          } : null,
+          applicationId: notification.applicationId,
           time: notification.createdAt,
           read: notification.read,
           status: notification.status

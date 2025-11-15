@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Post = require('../models/Post');
+const emailService = require('../utils/emailService');
 
 // Get business events
 router.get('/events', auth, async (req, res) => {
@@ -15,17 +16,33 @@ router.get('/events', auth, async (req, res) => {
       });
     }
 
-    const events = await Post.find({
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = {
       authorId: req.user._id,
       isEvent: true,
       isBusinessEvent: true
-    })
-    .populate('authorId', 'businessName businessType profileImage accountType')
-    .sort({ createdAt: -1 });
+    };
+
+    const events = await Post.find(query)
+      .populate('authorId', 'businessName businessType profileImage accountType')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Post.countDocuments(query);
 
     res.json({
       success: true,
-      events
+      events,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit)),
+        hasMore: skip + events.length < total
+      }
     });
   } catch (error) {
     console.error('Error fetching business events:', error);
@@ -178,21 +195,60 @@ router.get('/participants/:eventId', auth, async (req, res) => {
       });
     }
 
-    // Get participants from applications
-    const applications = (event.eventDetails && Array.isArray(event.eventDetails.applications))
+    const applications = Array.isArray(event.eventDetails?.applications)
       ? event.eventDetails.applications
       : [];
 
-    const participantIds = applications
-      .filter((app) => app.status === 'approved')
-      .map((app) => app.userId);
-
-    const participants = await User.find({ _id: { $in: participantIds } })
+    const applicantIds = applications.map((app) => app.userId);
+    const applicants = await User.find({ _id: { $in: applicantIds } })
       .select('firstName lastName name profileImage email username bio age location hobbies averageRating totalRatings');
+
+    const applicantMap = new Map(
+      applicants.map((user) => [user._id.toString(), user])
+    );
+
+    const formattedApplications = applications.map((app) => {
+      const applicant = applicantMap.get(app.userId.toString());
+
+      if (!applicant) {
+        return {
+          _id: app._id,
+          status: app.status,
+          appliedAt: app.appliedAt,
+          user: null
+        };
+      }
+
+      return {
+        _id: app._id,
+        status: app.status,
+        appliedAt: app.appliedAt,
+        user: {
+          _id: applicant._id,
+          firstName: applicant.firstName,
+          lastName: applicant.lastName,
+          name: applicant.name,
+          username: applicant.username,
+          profileImage: applicant.profileImage,
+          email: applicant.email,
+          bio: applicant.bio,
+          age: applicant.age,
+          location: applicant.location,
+          hobbies: applicant.hobbies,
+          averageRating: applicant.averageRating,
+          totalRatings: applicant.totalRatings
+        }
+      };
+    });
+
+    const participants = formattedApplications
+      .filter((app) => app.status === 'approved' && app.user)
+      .map((app) => app.user);
 
     res.json({
       success: true,
-      participants: participants || []
+      participants,
+      applications: formattedApplications
     });
   } catch (error) {
     console.error('Error fetching event participants:', error);

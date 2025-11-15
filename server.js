@@ -4,7 +4,10 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
+const Sentry = require('@sentry/node');
+const Tracing = require('@sentry/tracing');
 require('dotenv').config({ path: './config.env' });
+require('./utils/emailConfig');
 
 const app = express();
 const server = http.createServer(app);
@@ -15,6 +18,25 @@ const io = socketIo(server, {
   }
 });
 const PORT = process.env.PORT || 5000;
+
+const isSentryEnabled = Boolean(process.env.SENTRY_DSN);
+
+if (isSentryEnabled) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    integrations: [
+      new Sentry.Integrations.Http({ tracing: true }),
+      new Tracing.Integrations.Express({ app }),
+    ],
+    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE || 0.1),
+  });
+
+  app.use(Sentry.Handlers.requestHandler());
+  app.use(Sentry.Handlers.tracingHandler());
+} else {
+  console.warn('[Sentry] SENTRY_DSN not set. Error tracking disabled.');
+}
 
 // Middleware
 app.use(cors({
@@ -40,6 +62,19 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch((err) => {
   console.error('MongoDB connection error:', err);
 });
+
+// Swagger documentation (only in development or if enabled)
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  const swaggerUi = require('swagger-ui-express');
+  const swaggerSpec = require('./config/swagger');
+  
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Hubi API Documentation',
+  }));
+  
+  console.log('Swagger documentation available at /api-docs');
+}
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -181,16 +216,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Hubi Backend is running' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    success: false, 
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
-
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({ 
@@ -199,8 +224,31 @@ app.use('*', (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`WebSocket server is ready for connections`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-}); 
+if (isSentryEnabled) {
+  app.use(Sentry.Handlers.errorHandler());
+}
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  if (isSentryEnabled) {
+    Sentry.captureException(err);
+  }
+  res.status(500).json({ 
+    success: false, 
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`WebSocket server is ready for connections`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+  });
+}
+
+// Export app for testing
+module.exports = app; 

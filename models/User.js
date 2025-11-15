@@ -118,6 +118,60 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
   }],
+  notifications: [{
+    type: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: [500, 'Notification message cannot exceed 500 characters']
+    },
+    from: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      name: String,
+      username: String,
+      profileImage: String
+    },
+    team: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Team'
+      },
+      name: String,
+      sport: String
+    },
+    event: {
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Post'
+      },
+      title: String,
+      date: Date
+    },
+    applicationId: {
+      type: mongoose.Schema.Types.ObjectId
+    },
+    read: {
+      type: Boolean,
+      default: false
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected', 'info'],
+      default: 'pending'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   accountType: {
     type: String,
     enum: ['individual', 'business'],
@@ -146,6 +200,18 @@ const userSchema = new mongoose.Schema({
   description: {
     type: String,
     maxlength: [1000, 'Description cannot be more than 1000 characters']
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: {
+    type: String,
+    default: null
+  },
+  emailVerificationExpires: {
+    type: Date,
+    default: null
   },
   resetPasswordToken: {
     type: String,

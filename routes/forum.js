@@ -5,6 +5,102 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const upload = require('../middleware/upload');
+const emailService = require('../utils/emailService');
+
+const isBusinessEventPost = (post) => Boolean(post && (post.isBusinessEvent || post.createdByType === 'business'));
+
+const sendEventNotificationToOwner = async (post, applicant, overrides = {}) => {
+  if (!post || !applicant) return;
+
+  const notification = {
+    type: overrides.type || 'business_event_application',
+    message: overrides.message || `${applicant.name} applied to your event "${post.title}"`,
+    from: {
+      _id: applicant._id,
+      name: applicant.name,
+      username: applicant.username,
+      profileImage: applicant.profileImage
+    },
+    event: {
+      _id: post._id,
+      title: post.title,
+      date: post.eventDetails?.date
+    },
+    applicationId: overrides.applicationId,
+    status: overrides.status || 'pending',
+    createdAt: new Date(),
+    read: false
+  };
+
+  await User.findByIdAndUpdate(post.authorId, {
+    $push: { notifications: notification }
+  });
+
+  // Send email notification if email service is enabled and it's a business event
+  if (emailService.isEmailServiceEnabled() && isBusinessEventPost(post)) {
+    try {
+      const owner = await User.findById(post.authorId).select('email emailVerified');
+      if (owner && owner.emailVerified) {
+        await emailService.sendBusinessEventApplicationEmail(owner, applicant, post);
+      }
+    } catch (emailError) {
+      console.error('Error sending email notification to business owner:', emailError);
+      // Continue even if email fails
+    }
+  }
+};
+
+const submitEventApplication = async ({ post, applicant, autoApprove = false }) => {
+  if (!post || !post.eventDetails) {
+    return { success: false, error: 'INVALID_EVENT' };
+  }
+
+  const applications = post.eventDetails.applications || [];
+  const existingApplication = applications.find(
+    (app) => app.userId.toString() === applicant._id.toString()
+  );
+
+  if (existingApplication) {
+    return {
+      success: false,
+      error: 'ALREADY_APPLIED',
+      status: existingApplication.status
+    };
+  }
+
+  const approvedCount = applications.filter((app) => app.status === 'approved').length;
+
+  if (approvedCount >= post.eventDetails.maxParticipants) {
+    return { success: false, error: 'EVENT_FULL' };
+  }
+
+  const applicationStatus = autoApprove ? 'approved' : 'pending';
+  const application = {
+    userId: applicant._id,
+    userName: applicant.name,
+    username: applicant.username,
+    userProfileImage: applicant.profileImage,
+    status: applicationStatus
+  };
+
+  post.eventDetails.applications.push(application);
+  const insertedApplication = post.eventDetails.applications[post.eventDetails.applications.length - 1];
+
+  if (autoApprove) {
+    post.eventDetails.currentParticipants = approvedCount + 1;
+  }
+
+  await post.save();
+
+  if (!autoApprove && isBusinessEventPost(post)) {
+    await sendEventNotificationToOwner(post, applicant, { status: 'pending', applicationId: insertedApplication._id });
+  }
+
+  return {
+    success: true,
+    application: insertedApplication.toObject ? insertedApplication.toObject() : insertedApplication
+  };
+};
 
 // Get all posts with optional filtering
 router.get('/posts', auth, async (req, res) => {
@@ -91,6 +187,10 @@ router.get('/posts', auth, async (req, res) => {
         });
       }
 
+      const currentUserApplication = (req.user && po.isEvent && po.eventDetails && Array.isArray(po.eventDetails.applications))
+        ? po.eventDetails.applications.find(app => app.userId && app.userId.toString() === req.user._id.toString())
+        : null;
+
       return {
         ...po,
         authorName,
@@ -105,7 +205,8 @@ router.get('/posts', auth, async (req, res) => {
         eventDetails: po.isEvent && po.eventDetails ? {
           ...po.eventDetails,
           participants
-        } : po.eventDetails
+        } : po.eventDetails,
+        userEventStatus: currentUserApplication ? currentUserApplication.status : null
       };
     }));
 
@@ -458,7 +559,7 @@ router.post('/events/:id/apply', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Event not found' });
     }
 
-    if (!post.isEvent) {
+    if (!post.isEvent || !post.eventDetails) {
       return res.status(400).json({ success: false, message: 'This post is not an event' });
     }
 
@@ -466,33 +567,31 @@ router.post('/events/:id/apply', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'You cannot apply to your own event' });
     }
 
-    // Check if user has already applied
-    const existingApplication = post.eventDetails.applications.find(
-      app => app.userId.toString() === req.user._id.toString()
-    );
+    const result = await submitEventApplication({
+      post,
+      applicant: req.user,
+      autoApprove: false
+    });
 
-    if (existingApplication) {
-      return res.status(400).json({ success: false, message: 'You have already applied to this event' });
+    if (!result.success) {
+      switch (result.error) {
+        case 'ALREADY_APPLIED': {
+          const message = result.status === 'pending'
+            ? 'You have already applied to this event and are awaiting approval'
+            : 'You have already joined this event';
+          return res.status(400).json({ success: false, message });
+        }
+        case 'EVENT_FULL':
+          return res.status(400).json({ success: false, message: 'This event is full' });
+        default:
+          return res.status(400).json({ success: false, message: 'Unable to apply to this event' });
+      }
     }
-
-    // Check if event is full
-    if (post.eventDetails.currentParticipants >= post.eventDetails.maxParticipants) {
-      return res.status(400).json({ success: false, message: 'This event is full' });
-    }
-
-    const application = {
-      userId: req.user._id,
-      userName: req.user.name,
-      status: 'pending'
-    };
-
-    post.eventDetails.applications.push(application);
-    await post.save();
 
     res.json({
       success: true,
-      message: 'Application submitted successfully',
-      application
+      message: 'Application submitted successfully. Waiting for host approval.',
+      application: result.application
     });
   } catch (error) {
     console.error('Error applying to event:', error);
@@ -553,18 +652,131 @@ router.put('/events/:eventId/applications/:applicationId', auth, [
       return res.status(404).json({ success: false, message: 'Application not found' });
     }
 
-    application.status = req.body.status;
+    const previousStatus = application.status;
+    const newStatus = req.body.status;
 
-    // If approved, increment participant count
-    if (req.body.status === 'approved') {
-      post.eventDetails.currentParticipants += 1;
+    if (newStatus === 'approved') {
+      const approvedCountExcludingCurrent = post.eventDetails.applications.reduce((count, app) => {
+        if (app._id.toString() === application._id.toString()) {
+          return count;
+        }
+        return app.status === 'approved' ? count + 1 : count;
+      }, 0);
+
+      if (approvedCountExcludingCurrent >= post.eventDetails.maxParticipants) {
+        return res.status(400).json({
+          success: false,
+          message: 'Event capacity has already been reached'
+        });
+      }
     }
+
+    application.status = newStatus;
+
+    // Recalculate current participants based on approved applications
+    const approvedCount = post.eventDetails.applications.filter(app => app.status === 'approved').length;
+    post.eventDetails.currentParticipants = approvedCount;
 
     await post.save();
 
+    const isBusinessEvent = isBusinessEventPost(post);
+    const applicantUser = await User.findById(application.userId).select('_id name username profileImage preferredLanguage');
+
+    if (isBusinessEvent) {
+      // Update existing application notification for the owner
+      await User.updateOne(
+        {
+          _id: post.authorId,
+          'notifications.event._id': post._id,
+          'notifications.from._id': application.userId
+        },
+        {
+          $set: {
+            'notifications.$.status': newStatus,
+            'notifications.$.read': true
+          }
+        }
+      );
+
+      // Send additional notification to business owner when application is approved
+      if (newStatus === 'approved' && applicantUser) {
+        const businessOwner = await User.findById(post.authorId).select('_id name username profileImage');
+        if (businessOwner) {
+          await User.findByIdAndUpdate(post.authorId, {
+            $push: {
+              notifications: {
+                type: 'business_event_participant_joined',
+                message: `${applicantUser.name} has joined your event "${post.title}"`,
+                from: {
+                  _id: applicantUser._id,
+                  name: applicantUser.name,
+                  username: applicantUser.username,
+                  profileImage: applicantUser.profileImage
+                },
+                event: {
+                  _id: post._id,
+                  title: post.title,
+                  date: post.eventDetails?.date
+                },
+                applicationId: application._id,
+                status: 'approved',
+                createdAt: new Date(),
+                read: false
+              }
+            }
+          });
+        }
+      }
+    }
+
+    if (applicantUser && isBusinessEvent) {
+      const notificationType = newStatus === 'approved' ? 'business_event_application_approved' : 'business_event_application_rejected';
+      const message = newStatus === 'approved'
+        ? `Your application to "${post.title}" has been approved`
+        : `Your application to "${post.title}" has been rejected`;
+
+      // Get business owner info for notification
+      const businessOwner = await User.findById(post.authorId).select('businessName name profileImage');
+      const ownerName = businessOwner?.businessName || businessOwner?.name || 'Business';
+
+      await User.findByIdAndUpdate(applicantUser._id, {
+        $push: {
+          notifications: {
+            type: notificationType,
+            message,
+            from: {
+              _id: post.authorId,
+              name: ownerName,
+              username: null,
+              profileImage: businessOwner?.profileImage || null
+            },
+            event: {
+              _id: post._id,
+              title: post.title,
+              date: post.eventDetails?.date
+            },
+            applicationId: application._id,
+            status: newStatus,
+            createdAt: new Date(),
+            read: false
+          }
+        }
+      });
+
+      // Send email notification to applicant
+      if (emailService.isEmailServiceEnabled() && applicantUser.emailVerified) {
+        try {
+          await emailService.sendBusinessEventApplicationStatusEmail(applicantUser, post, newStatus);
+        } catch (emailError) {
+          console.error('Error sending email notification to applicant:', emailError);
+          // Continue even if email fails
+        }
+      }
+    }
+
     res.json({
       success: true,
-      message: `Application ${req.body.status}`,
+      message: `Application ${newStatus}`,
       application
     });
   } catch (error) {
@@ -675,39 +887,44 @@ router.post('/posts/:id/event/join', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
-    if (!post.isEvent) {
+    if (!post.isEvent || !post.eventDetails) {
       return res.status(400).json({ success: false, message: 'This post is not an event' });
     }
 
-    if (post.eventDetails.currentParticipants >= post.eventDetails.maxParticipants) {
-      return res.status(400).json({ success: false, message: 'Event is full' });
+    if (post.authorId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot join your own event' });
     }
 
-    // Check if user already joined
-    const existingApplication = post.eventDetails.applications.find(
-      app => app.userId.toString() === req.user._id.toString()
-    );
-
-    if (existingApplication) {
-      return res.status(400).json({ success: false, message: 'You have already joined this event' });
-    }
-
-    // Add application
-    post.eventDetails.applications.push({
-      userId: req.user._id,
-      userName: req.user.name,
-      username: req.user.username,
-      userProfileImage: req.user.profileImage,
-      status: 'approved' // Auto-approve for now
+    const businessEvent = isBusinessEventPost(post);
+    const result = await submitEventApplication({
+      post,
+      applicant: req.user,
+      autoApprove: !businessEvent
     });
 
-    post.eventDetails.currentParticipants += 1;
+    if (!result.success) {
+      switch (result.error) {
+        case 'ALREADY_APPLIED': {
+          const message = result.status === 'pending'
+            ? 'You have already applied to this event and are awaiting approval'
+            : 'You have already joined this event';
+          return res.status(400).json({ success: false, message });
+        }
+        case 'EVENT_FULL':
+          return res.status(400).json({ success: false, message: 'Event is full' });
+        default:
+          return res.status(400).json({ success: false, message: 'Unable to join this event' });
+      }
+    }
 
-    await post.save();
+    const responseMessage = businessEvent
+      ? 'Application submitted successfully. Waiting for host approval.'
+      : 'Successfully joined the event';
 
     res.json({
       success: true,
-      message: 'Successfully joined the event',
+      message: responseMessage,
+      application: result.application,
       eventDetails: post.eventDetails
     });
   } catch (error) {
@@ -738,7 +955,8 @@ router.post('/posts/:id/event/leave', auth, async (req, res) => {
     }
 
     post.eventDetails.applications.splice(applicationIndex, 1);
-    post.eventDetails.currentParticipants = Math.max(0, post.eventDetails.currentParticipants - 1);
+    const approvedRemaining = post.eventDetails.applications.filter(app => app.status === 'approved').length;
+    post.eventDetails.currentParticipants = approvedRemaining;
 
     await post.save();
 

@@ -729,6 +729,17 @@ router.post('/:teamId/join-request', auth, async (req, res) => {
       { $push: { notifications: notification } }
     );
 
+    // Send email notification to captain if email service is enabled
+    const emailService = require('../utils/emailService');
+    if (emailService.isEmailServiceEnabled() && team.captain.emailVerified) {
+      try {
+        await emailService.sendTeamJoinRequestEmail(team.captain, user, team);
+      } catch (emailError) {
+        console.error('Error sending email notification to team captain:', emailError);
+        // Continue even if email fails
+      }
+    }
+
     res.json({
       success: true,
       message: 'Join request sent to team captain'

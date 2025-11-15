@@ -31,6 +31,14 @@ const eventApplicationSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  username: {
+    type: String,
+    trim: true
+  },
+  userProfileImage: {
+    type: String,
+    default: null
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
@@ -173,6 +181,10 @@ postSchema.pre('save', function(next) {
 postSchema.index({ authorId: 1, createdAt: -1 });
 postSchema.index({ category: 1, createdAt: -1 });
 postSchema.index({ isEvent: 1, createdAt: -1 });
+postSchema.index({ isBusinessEvent: 1, createdAt: -1 });
+postSchema.index({ createdByType: 1, createdAt: -1 });
+postSchema.index({ authorId: 1, isEvent: 1, isBusinessEvent: 1, createdAt: -1 }); // Compound index for business events query
 postSchema.index({ tags: 1 });
+postSchema.index({ createdAt: -1 }); // General sorting index
 
 module.exports = mongoose.model('Post', postSchema); 
