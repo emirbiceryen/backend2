@@ -10,6 +10,9 @@ const emailVerificationConfig = {
   from: process.env.EMAIL_VERIFICATION_FROM || '',
   baseUrl: process.env.EMAIL_VERIFICATION_BASE_URL || '',
   provider: process.env.EMAIL_PROVIDER || 'smtp',
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || ''
+  },
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
@@ -31,7 +34,11 @@ if (emailVerificationEnabled) {
     console.info('[Email Verification] EMAIL_VERIFICATION_BASE_URL is empty. Backend URL will be used automatically.');
   }
 
-  if (emailVerificationConfig.provider === 'smtp') {
+  if (emailVerificationConfig.provider === 'resend') {
+    if (!emailVerificationConfig.resend.apiKey) {
+      missing.push('RESEND_API_KEY');
+    }
+  } else if (emailVerificationConfig.provider === 'smtp') {
     if (!emailVerificationConfig.smtp.host) missing.push('SMTP_HOST');
     if (!emailVerificationConfig.smtp.port) missing.push('SMTP_PORT');
     if (!emailVerificationConfig.smtp.user) missing.push('SMTP_USER');

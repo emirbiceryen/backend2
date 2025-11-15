@@ -2,15 +2,25 @@ const nodemailer = require('nodemailer');
 const emailConfig = require('./emailConfig');
 
 let transporter = null;
+let resendApiKey = null;
 
-// Initialize email transporter
-const initializeTransporter = () => {
+// Initialize email service
+const initializeEmailService = () => {
   if (!emailConfig.enabled) {
     console.warn('[Email Service] Email service is disabled');
     return null;
   }
 
-  if (emailConfig.provider === 'smtp') {
+  if (emailConfig.provider === 'resend') {
+    // Resend API
+    if (!emailConfig.resend.apiKey) {
+      console.warn('[Email Service] Resend API key not configured');
+      return null;
+    }
+    resendApiKey = emailConfig.resend.apiKey;
+    console.log('[Email Service] Resend API configured');
+    return true;
+  } else if (emailConfig.provider === 'smtp') {
     // Check if required SMTP config is present
     if (!emailConfig.smtp.host || !emailConfig.smtp.port || !emailConfig.smtp.user || !emailConfig.smtp.pass) {
       console.warn('[Email Service] SMTP configuration incomplete. Email service will not work.');
@@ -65,7 +75,7 @@ const initializeTransporter = () => {
 // Initialize on module load (with error handling)
 if (emailConfig.enabled) {
   try {
-    initializeTransporter();
+    initializeEmailService();
   } catch (error) {
     console.error('[Email Service] Failed to initialize:', error.message);
     console.warn('[Email Service] Email service disabled due to initialization error');
@@ -82,8 +92,51 @@ if (emailConfig.enabled) {
  * @returns {Promise}
  */
 const sendEmail = async ({ to, subject, html, text }) => {
-  if (!emailConfig.enabled || !transporter) {
-    console.warn('[Email Service] Email service is disabled or not configured');
+  if (!emailConfig.enabled) {
+    console.warn('[Email Service] Email service is disabled');
+    return { success: false, message: 'Email service is not configured' };
+  }
+
+  // Resend API
+  if (emailConfig.provider === 'resend') {
+    if (!resendApiKey) {
+      console.warn('[Email Service] Resend API key not configured');
+      return { success: false, message: 'Resend API key not configured' };
+    }
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: emailConfig.from,
+          to: [to],
+          subject,
+          html,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('[Email Service] Resend API error:', data);
+        return { success: false, error: data.message || 'Failed to send email' };
+      }
+
+      console.log('[Email Service] Email sent via Resend:', data.id);
+      return { success: true, messageId: data.id };
+    } catch (error) {
+      console.error('[Email Service] Error sending email via Resend:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // SMTP (Nodemailer)
+  if (!transporter) {
+    console.warn('[Email Service] Email transporter not configured');
     return { success: false, message: 'Email service is not configured' };
   }
 
