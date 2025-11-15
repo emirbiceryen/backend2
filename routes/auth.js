@@ -921,11 +921,20 @@ router.post('/resend-verification', [
 
     // Send verification email
     try {
-      await emailService.sendVerificationEmail(user, verificationCode);
-      res.json({
-        success: true,
-        message: 'Verification email sent successfully'
-      });
+      const emailResult = await emailService.sendVerificationEmail(user, verificationCode);
+      if (emailResult.success) {
+        res.json({
+          success: true,
+          message: 'Verification email sent successfully'
+        });
+      } else {
+        console.error('Error sending verification email:', emailResult.error);
+        res.status(500).json({
+          success: false,
+          message: emailResult.error || 'Failed to send verification email',
+          details: emailResult.details
+        });
+      }
     } catch (emailError) {
       console.error('Error sending verification email:', emailError);
       res.status(500).json({

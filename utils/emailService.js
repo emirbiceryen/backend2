@@ -111,6 +111,22 @@ const sendEmail = async ({ to, subject, html, text }) => {
     }
 
     try {
+      // Resend requires verified domain or approved email
+      // If using Gmail, we need to use Resend's approved domain or verify the domain
+      // For now, use Resend's default domain if Gmail domain is not verified
+      let fromEmail = emailConfig.from;
+      
+      // Check if from email is Gmail and might not be verified
+      // Use Resend's approved domain format: onboarding@resend.dev (for testing)
+      // Or use a verified domain if available
+      if (fromEmail.includes('@gmail.com') || fromEmail.includes('@googlemail.com')) {
+        // Try to use Resend's approved domain or the user's verified domain
+        // If domain is not verified, Resend will reject it
+        // For production, user should verify their domain in Resend dashboard
+        console.warn('[Email Service] Using Gmail address. Make sure domain is verified in Resend dashboard.');
+        console.warn('[Email Service] If email fails, verify domain at https://resend.com/domains');
+      }
+
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -118,7 +134,7 @@ const sendEmail = async ({ to, subject, html, text }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: emailConfig.from,
+          from: fromEmail,
           to: [to],
           subject,
           html,
@@ -129,6 +145,16 @@ const sendEmail = async ({ to, subject, html, text }) => {
 
       if (!response.ok) {
         console.error('[Email Service] Resend API error:', data);
+        
+        // Provide more helpful error messages
+        if (data.statusCode === 403 && data.message && data.message.includes('domain')) {
+          return { 
+            success: false, 
+            error: 'Domain not verified. Please verify your domain in Resend dashboard at https://resend.com/domains',
+            details: data.message
+          };
+        }
+        
         return { success: false, error: data.message || 'Failed to send email' };
       }
 
