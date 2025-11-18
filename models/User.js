@@ -172,6 +172,12 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
+  role: {
+    type: String,
+    enum: ['user', 'business_pending', 'business_owner', 'admin'],
+    default: 'user',
+    index: true
+  },
   accountType: {
     type: String,
     enum: ['individual', 'business'],
@@ -224,6 +230,20 @@ const userSchema = new mongoose.Schema({
   loginAttempts: {
     type: Number,
     default: 0
+  },
+  isBanned: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  bannedAt: {
+    type: Date,
+    default: null
+  },
+  bannedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
   lockUntil: {
     type: Date,

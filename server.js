@@ -96,6 +96,9 @@ const ratingRoutes = require('./routes/ratings');
 const subscriptionRoutes = require('./routes/subscription');
 const teamRoutes = require('./routes/teams');
 const businessRoutes = require('./routes/business');
+const businessApplicationRoutes = require('./routes/businessApplication');
+const adminRoutes = require('./routes/admin');
+const healthRoutes = require('./routes/health');
 
 // WebSocket connection management
 const connectedUsers = new Map();
@@ -218,11 +221,9 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/business', businessRoutes);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Hubi Backend is running' });
-});
+app.use('/api/business', businessApplicationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/health', healthRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

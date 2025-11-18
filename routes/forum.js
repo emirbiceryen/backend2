@@ -200,7 +200,10 @@ router.get('/posts', auth, async (req, res) => {
         createdByType: po.createdByType || (populatedAuthor && populatedAuthor.accountType === 'business' ? 'business' : 'individual'),
         businessInfo: populatedAuthor && populatedAuthor.accountType === 'business' ? {
           businessName: populatedAuthor.businessName,
-          businessType: populatedAuthor.businessType
+          businessType: populatedAuthor.businessType,
+          profileImage: populatedAuthor.profileImage ? (
+            populatedAuthor.profileImage.startsWith('/uploads') ? `${host}${populatedAuthor.profileImage}` : populatedAuthor.profileImage
+          ) : undefined
         } : undefined,
         eventDetails: po.isEvent && po.eventDetails ? {
           ...po.eventDetails,

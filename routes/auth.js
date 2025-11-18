@@ -186,25 +186,13 @@ router.post('/signup', [
       accountType: accountType || 'individual'
     };
 
-    // Add business fields if accountType is business
+    // Business accounts can no longer be created directly via signup
+    // Users must apply through /business/apply endpoint
     if (accountType === 'business') {
-      if (businessName) userData.businessName = businessName;
-      if (businessType) userData.businessType = businessType;
-      if (contactInfo) userData.contactInfo = contactInfo;
-      if (workingHours) userData.workingHours = workingHours;
-      if (description) userData.description = description;
-      if (location) {
-        if (typeof location === 'object') {
-          userData.location = location;
-        } else if (typeof location === 'string') {
-          try {
-            userData.location = JSON.parse(location);
-          } catch (e) {
-            // If parsing fails, set as city only
-            userData.location = { city: location, state: '', country: '' };
-          }
-        }
-      }
+      return res.status(400).json({
+        success: false,
+        message: 'Business accounts cannot be created directly. Please submit a business application through the application form.'
+      });
     }
     
     const user = new User(userData);

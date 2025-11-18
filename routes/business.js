@@ -8,11 +8,11 @@ const emailService = require('../utils/emailService');
 // Get business events
 router.get('/events', auth, async (req, res) => {
   try {
-    // Check if user is a business account
-    if (req.user.accountType !== 'business') {
+    // Check if user is a business owner (approved business account)
+    if (req.user.role !== 'business_owner') {
       return res.status(403).json({
         success: false,
-        message: 'Only business accounts can access this endpoint'
+        message: 'Only approved business accounts can access this endpoint'
       });
     }
 
@@ -56,8 +56,8 @@ router.get('/events', auth, async (req, res) => {
 // Create business event
 router.post('/events', auth, async (req, res) => {
   try {
-    // Check if user is a business account
-    if (req.user.accountType !== 'business') {
+    // Check if user is a business owner (approved business account)
+    if (req.user.role !== 'business_owner') {
       return res.status(403).json({
         success: false,
         message: 'Only business accounts can create events'
@@ -168,8 +168,8 @@ router.post('/events', auth, async (req, res) => {
 // Get event participants
 router.get('/participants/:eventId', auth, async (req, res) => {
   try {
-    // Check if user is a business account
-    if (req.user.accountType !== 'business') {
+    // Check if user is a business owner (approved business account)
+    if (req.user.role !== 'business_owner') {
       return res.status(403).json({
         success: false,
         message: 'Only business accounts can access this endpoint'
