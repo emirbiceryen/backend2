@@ -186,14 +186,8 @@ router.post('/signup', [
       accountType: accountType || 'individual'
     };
 
-    // Business accounts can no longer be created directly via signup
-    // Users must apply through /business/apply endpoint
-    if (accountType === 'business') {
-      return res.status(400).json({
-        success: false,
-        message: 'Business accounts cannot be created directly. Please submit a business application through the application form.'
-      });
-    }
+    // Business accounts can be created via signup
+    // After creation, users should submit a business application for approval
     
     const user = new User(userData);
 
