@@ -32,13 +32,10 @@ async function createAdmin() {
 
       console.log(`📝 Creating new admin user with email: ${email}`);
       
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      // Create new user
+      // Create new user (password will be hashed by pre-save hook)
       user = new User({
         email: email.toLowerCase().trim(),
-        password: hashedPassword,
+        password: password, // Will be hashed by pre-save hook
         username: email.split('@')[0], // Use email prefix as username
         firstName: 'Admin',
         lastName: 'User',
@@ -54,10 +51,9 @@ async function createAdmin() {
     } else {
       // User exists, update to admin
       if (password) {
-        // Update password if provided
-        const hashedPassword = await bcrypt.hash(password, 10);
-        user.password = hashedPassword;
-        console.log(`🔑 Password updated.`);
+        // Update password (will be hashed by pre-save hook)
+        user.password = password;
+        console.log(`🔑 Password will be updated.`);
       }
       
       // Check if already admin
