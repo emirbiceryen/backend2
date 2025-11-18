@@ -232,6 +232,181 @@ router.post('/users/unban/:id', [auth, admin], async (req, res) => {
 });
 
 /**
+ * @route   GET /admin/business/applications
+ * @desc    Get all business applications (Admin only)
+ * @access  Private (Admin)
+ */
+router.get('/business/applications', [auth, admin], async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = {};
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+      query.status = status;
+    }
+
+    const applications = await BusinessApplication.find(query)
+      .populate('userId', 'name email username profileImage')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await BusinessApplication.countDocuments(query);
+
+    res.json({
+      success: true,
+      applications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching business applications:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
+ * @route   GET /admin/business/applications/:id
+ * @desc    Get business application details (Admin only)
+ * @access  Private (Admin)
+ */
+router.get('/business/applications/:id', [auth, admin], async (req, res) => {
+  try {
+    const application = await BusinessApplication.findById(req.params.id)
+      .populate('userId', 'name email username profileImage accountType businessName businessType')
+      .populate('reviewedBy', 'name email');
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Business application not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      application
+    });
+  } catch (error) {
+    console.error('Error fetching business application:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
+ * @route   POST /admin/business/approve/:id
+ * @desc    Approve business application (Admin only)
+ * @access  Private (Admin)
+ */
+router.post('/business/approve/:id', [auth, admin], async (req, res) => {
+  try {
+    const application = await BusinessApplication.findById(req.params.id);
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Business application not found'
+      });
+    }
+
+    if (application.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Application is not pending'
+      });
+    }
+
+    application.status = 'approved';
+    application.reviewedAt = new Date();
+    application.reviewedBy = req.user._id;
+    await application.save();
+
+    const user = await User.findById(application.userId);
+    if (user) {
+      user.role = 'business_owner';
+      user.accountType = 'business';
+      if (application.businessName) {
+        user.businessName = application.businessName;
+      }
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Business application approved',
+      application
+    });
+  } catch (error) {
+    console.error('Error approving business application:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
+ * @route   POST /admin/business/reject/:id
+ * @desc    Reject business application (Admin only)
+ * @access  Private (Admin)
+ */
+router.post('/business/reject/:id', [auth, admin], async (req, res) => {
+  try {
+    const { rejectionReason } = req.body;
+    const application = await BusinessApplication.findById(req.params.id);
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: 'Business application not found'
+      });
+    }
+
+    if (application.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Application is not pending'
+      });
+    }
+
+    application.status = 'rejected';
+    application.reviewedAt = new Date();
+    application.reviewedBy = req.user._id;
+    if (rejectionReason) {
+      application.rejectionReason = rejectionReason;
+    }
+    await application.save();
+
+    const user = await User.findById(application.userId);
+    if (user) {
+      user.role = 'user';
+      await user.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Business application rejected',
+      application
+    });
+  } catch (error) {
+    console.error('Error rejecting business application:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+/**
  * @route   GET /admin/stats
  * @desc    Get admin dashboard statistics
  * @access  Private (Admin)
