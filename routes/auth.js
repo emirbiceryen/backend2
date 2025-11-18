@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const BusinessApplication = require('../models/BusinessApplication');
 const auth = require('../middleware/auth');
 const {
   googleClientIds,
@@ -154,7 +155,12 @@ router.post('/signup', [
       contactInfo,
       workingHours,
       description,
-      location
+      location,
+      // Business application fields
+      taxNumber,
+      phone,
+      address,
+      website
     } = req.body;
 
     // Check if user already exists by email
@@ -206,6 +212,33 @@ router.post('/signup', [
     
     await user.save();
     console.log('User saved successfully with ID:', user._id);
+
+    // If business account, create business application
+    if (accountType === 'business' && businessName && taxNumber && phone && address) {
+      try {
+        // Set user role to business_pending
+        user.role = 'business_pending';
+        await user.save();
+
+        // Create business application
+        const businessApplication = new BusinessApplication({
+          userId: user._id,
+          businessName: businessName.trim(),
+          taxNumber: taxNumber.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          website: website ? website.trim() : undefined,
+          documents: [], // Documents can be uploaded later if needed
+          status: 'pending'
+        });
+
+        await businessApplication.save();
+        console.log('Business application created successfully for user:', user._id);
+      } catch (appError) {
+        console.error('Error creating business application:', appError);
+        // Continue even if business application creation fails
+      }
+    }
 
     // Send verification email if email service is enabled
     console.log('[Signup] Email service enabled:', emailService.isEmailServiceEnabled());
