@@ -44,39 +44,51 @@ const initializeFirebase = () => {
       
       // Try to parse as JSON
       if (typeof jsonString === 'string') {
-        // Handle multiple levels of escaping that Railway might apply
-        // Railway may double-escape JSON strings, so we need to handle both cases
+        // Railway may convert \n to actual newlines in environment variables
+        // We need to handle both escaped newlines (\n) and real newlines
         
         let cleanedJson = jsonString;
         
-        // First, try to unescape common patterns
-        // Handle double-escaped newlines: \\n -> \n
-        cleanedJson = cleanedJson.replace(/\\\\n/g, '\n');
-        // Handle single-escaped newlines: \n -> \n (if not already handled)
-        cleanedJson = cleanedJson.replace(/\\n/g, '\n');
+        // Step 1: Replace real newlines in the string with escaped newlines
+        // This handles the case where Railway converted \n to actual newline characters
+        cleanedJson = cleanedJson.replace(/\r\n/g, '\\n').replace(/\n/g, '\\n').replace(/\r/g, '\\n');
         
-        // Handle escaped quotes: \" -> "
+        // Step 2: Handle escaped newlines that might be double-escaped
+        // Handle \\n (double-escaped) -> keep as \n for JSON
+        cleanedJson = cleanedJson.replace(/\\\\n/g, '\\n');
+        
+        // Step 3: Handle escaped quotes
         cleanedJson = cleanedJson.replace(/\\"/g, '"');
-        // Handle double-escaped quotes: \\" -> "
-        cleanedJson = cleanedJson.replace(/\\\\"/g, '"');
         
-        // Handle escaped backslashes: \\ -> \
-        cleanedJson = cleanedJson.replace(/\\\\/g, '\\');
+        // Step 4: Handle escaped backslashes (but preserve \n sequences)
+        // We need to be careful here - don't break \n sequences
+        cleanedJson = cleanedJson.replace(/\\(?!n)/g, '\\');
         
         // Try to parse
         try {
           serviceAccount = JSON.parse(cleanedJson);
+          console.log('[Firebase] JSON parsed successfully after cleaning newlines');
         } catch (firstParseError) {
-          // If first parse fails, try with even more aggressive cleaning
-          console.log('[Firebase] First parse attempt failed, trying more aggressive cleaning...');
-          
-          // Remove all backslashes before newlines and quotes
-          cleanedJson = jsonString
-            .replace(/\\+n/g, '\n')  // One or more backslashes + n -> newline
-            .replace(/\\+"/g, '"')   // One or more backslashes + " -> "
-            .replace(/\\+/g, '\\');  // Multiple backslashes -> single backslash
-          
-          serviceAccount = JSON.parse(cleanedJson);
+          // If first parse fails, try with original string (maybe it's already valid JSON)
+          console.log('[Firebase] First parse attempt failed, trying original string...');
+          try {
+            serviceAccount = JSON.parse(jsonString);
+            console.log('[Firebase] JSON parsed successfully from original string');
+          } catch (secondParseError) {
+            // Last resort: try to reconstruct JSON by replacing all problematic characters
+            console.log('[Firebase] Second parse attempt failed, trying aggressive reconstruction...');
+            
+            // More aggressive: replace all real newlines and reconstruct
+            let reconstructed = jsonString
+              .replace(/\r\n/g, '')
+              .replace(/\n/g, '')
+              .replace(/\r/g, '')
+              .replace(/\\n/g, '\\n')
+              .replace(/\\"/g, '"');
+            
+            serviceAccount = JSON.parse(reconstructed);
+            console.log('[Firebase] JSON parsed successfully after aggressive reconstruction');
+          }
         }
       } else {
         serviceAccount = jsonString;
