@@ -6,17 +6,10 @@ const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
+const firebaseUploadService = require('../utils/firebaseUploadService');
 
-// Configure multer for team profile image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'team-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer with memory storage for Firebase uploads
+const storage = multer.memoryStorage();
 
 const upload = multer({ 
   storage: storage,
@@ -113,13 +106,28 @@ router.post('/', [
       });
     }
 
+    // Upload team profile image to Firebase if provided
+    let profileImageUrl = null;
+    if (req.file) {
+      try {
+        profileImageUrl = await firebaseUploadService.uploadFile(req.file, 'teams');
+        console.log('Team profile image uploaded to Firebase:', profileImageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading team profile image to Firebase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload team profile image'
+        });
+      }
+    }
+
     // Create new team
     const teamData = {
       name,
       sport,
       captain: req.user._id,
       description: description || '',
-      profileImage: req.file ? req.file.filename : null
+      profileImage: profileImageUrl
     };
 
     const team = new Team(teamData);
@@ -572,7 +580,20 @@ router.put('/:id', [
     const updateData = {};
     if (req.body.name) updateData.name = req.body.name;
     if (req.body.description !== undefined) updateData.description = req.body.description;
-    if (req.file) updateData.profileImage = req.file.filename;
+    // Upload team profile image to Firebase if provided
+    if (req.file) {
+      try {
+        const profileImageUrl = await firebaseUploadService.uploadFile(req.file, 'teams');
+        updateData.profileImage = profileImageUrl;
+        console.log('Team profile image uploaded to Firebase:', profileImageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading team profile image to Firebase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload team profile image'
+        });
+      }
+    }
 
     const updatedTeam = await Team.findByIdAndUpdate(
       req.params.id,

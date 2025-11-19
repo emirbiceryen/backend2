@@ -7,17 +7,10 @@ const BusinessApplication = require('../models/BusinessApplication');
 const User = require('../models/User');
 const multer = require('multer');
 const path = require('path');
+const firebaseUploadService = require('../utils/firebaseUploadService');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/business-documents/');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'business-doc-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer with memory storage for Firebase uploads
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -77,8 +70,20 @@ router.post('/apply', [
       });
     }
 
-    // Get uploaded document paths
-    const documents = req.files ? req.files.map(file => `/uploads/business-documents/${file.filename}`) : [];
+    // Upload documents to Firebase Storage
+    let documents = [];
+    if (req.files && req.files.length > 0) {
+      try {
+        documents = await firebaseUploadService.uploadMultipleFiles(req.files, 'businesses');
+        console.log('Business documents uploaded to Firebase:', documents);
+      } catch (uploadError) {
+        console.error('Error uploading business documents to Firebase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload business documents'
+        });
+      }
+    }
 
     // Create business application
     const application = new BusinessApplication({
@@ -218,14 +223,8 @@ router.get('/admin/business/applications/:id', [auth, admin], async (req, res) =
       });
     }
 
-    // Format document URLs
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    
-    const documents = application.documents.map(doc => 
-      doc.startsWith('http') ? doc : `${host}${doc}`
-    );
+    // Documents are already Firebase URLs, no need to format
+    const documents = application.documents || [];
 
     res.json({
       success: true,

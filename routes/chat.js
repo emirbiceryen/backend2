@@ -24,7 +24,7 @@ router.get('/', auth, async (req, res) => {
       
       // Format profile image URL
       const formattedProfileImage = otherParticipant?.profileImage 
-        ? (otherParticipant.profileImage.startsWith('/uploads') ? `${host}${otherParticipant.profileImage}` : otherParticipant.profileImage)
+        ? otherParticipant.profileImage
         : null;
       
       const unreadCount = chat.messages.filter(msg => 
@@ -108,7 +108,7 @@ router.get('/:userId', auth, async (req, res) => {
       : `${req.protocol}://${req.get('host')}`;
     const formattedParticipants = chat.participants.map(participant => {
       const formattedProfileImage = participant.profileImage 
-        ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
+        ? participant.profileImage
         : null;
       
       return {
@@ -182,7 +182,7 @@ router.post('/:userId/message', [
       : `${req.protocol}://${req.get('host')}`;
     const formattedParticipants = populatedChat.participants.map(participant => {
       const formattedProfileImage = participant.profileImage 
-        ? (participant.profileImage.startsWith('/uploads') ? `${host}${participant.profileImage}` : participant.profileImage)
+        ? participant.profileImage
         : null;
       
       return {
@@ -223,7 +223,7 @@ router.get('/potential/users', auth, async (req, res) => {
       
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
-        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        ? otherUser.profileImage
         : null;
       
       return {

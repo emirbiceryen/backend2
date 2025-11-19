@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Hobby = require('../models/Hobby');
 const upload = require('../middleware/upload');
+const firebaseUploadService = require('../utils/firebaseUploadService');
 
 // Get current user's profile
 router.get('/me', auth, async (req, res) => {
@@ -18,13 +19,8 @@ router.get('/me', auth, async (req, res) => {
       });
     }
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     res.json({
       success: true,
@@ -69,13 +65,8 @@ router.get('/user/:userId', async (req, res) => {
       });
     }
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     res.json({
       success: true,
@@ -177,9 +168,18 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     
     // Handle profile image upload
     if (req.file) {
-      console.log('File uploaded successfully:', req.file);
-      updateData.profileImage = `/uploads/${req.file.filename}`;
-      console.log('Setting profileImage to:', updateData.profileImage);
+      console.log('File uploaded successfully:', req.file.originalname);
+      try {
+        const imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
+        updateData.profileImage = imageUrl;
+        console.log('Profile image uploaded to Firebase:', imageUrl);
+      } catch (uploadError) {
+        console.error('Error uploading profile image to Firebase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload profile image'
+        });
+      }
     } else {
       console.log('No file uploaded');
     }
@@ -296,7 +296,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
         ? 'https://backend-production-7063.up.railway.app'
         : `${req.protocol}://${req.get('host')}`;
       const formattedProfileImage = user.profileImage 
-        ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+        ? user.profileImage
         : null;
 
       return res.json({
@@ -354,13 +354,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       });
     }
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     console.log('Final profileImage in response:', formattedProfileImage);
     console.log('User profileImage in DB:', user.profileImage);
@@ -420,9 +415,22 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
       });
     }
 
+    // Upload to Firebase Storage
+    let imageUrl;
+    try {
+      imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
+      console.log('Profile image uploaded to Firebase:', imageUrl);
+    } catch (uploadError) {
+      console.error('Error uploading profile image to Firebase:', uploadError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upload profile image'
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { profileImage: `/uploads/${req.file.filename}` },
+      { profileImage: imageUrl },
       { new: true, runValidators: true }
     ).populate('hobbies', 'name description icon');
 
@@ -433,13 +441,8 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
       });
     }
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     res.json({
       success: true,

@@ -272,13 +272,8 @@ router.get('/profile', auth, async (req, res) => {
     const user = await User.findById(req.user._id)
       .select('-password');
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     res.json({
       success: true,
@@ -340,13 +335,8 @@ router.put('/profile', auth, async (req, res) => {
       { new: true, runValidators: true }
     ).select('-password');
 
-    // Format profile image URL
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
-      : null;
+    // Profile image is already a Firebase URL
+    const formattedProfileImage = user.profileImage || null;
 
     res.json({
       success: true,

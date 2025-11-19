@@ -280,7 +280,7 @@ router.post('/signup', [
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      ? user.profileImage
       : null;
 
     const userResponse = {
@@ -444,7 +444,7 @@ router.post('/login', [
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      ? user.profileImage
       : null;
 
     const userData = {
@@ -658,7 +658,7 @@ router.post('/google', [
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = user.profileImage 
-      ? (user.profileImage.startsWith('/uploads') ? `${host}${user.profileImage}` : user.profileImage)
+      ? user.profileImage
       : null;
 
     const userData = {
@@ -691,7 +691,7 @@ router.get('/me', auth, async (req, res) => {
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
     const formattedProfileImage = req.user.profileImage 
-      ? (req.user.profileImage.startsWith('/uploads') ? `${host}${req.user.profileImage}` : req.user.profileImage)
+      ? req.user.profileImage
       : null;
 
     const userData = {

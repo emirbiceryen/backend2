@@ -113,7 +113,7 @@ router.get('/potential', auth, async (req, res) => {
     const matchesWithHobbyNames = matchesWithSharedHobbies.map(match => {
       // Format profile image URL
       const formattedProfileImage = match.profileImage 
-        ? (match.profileImage.startsWith('/uploads') ? `${host}${match.profileImage}` : match.profileImage)
+        ? match.profileImage
         : null;
 
       // Get skill level for the first shared hobby (the one that will be displayed)
@@ -387,7 +387,7 @@ router.get('/pending', auth, async (req, res) => {
 
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
-        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        ? otherUser.profileImage
         : null;
 
       return {
@@ -470,7 +470,7 @@ router.get('/matches', auth, async (req, res) => {
         
         // Format profile image URL
         const formattedProfileImage = otherUser.profileImage 
-          ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+          ? otherUser.profileImage
           : null;
         
         return {
@@ -540,7 +540,7 @@ router.get('/matches', auth, async (req, res) => {
       
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
-        ? (otherUser.profileImage.startsWith('/uploads') ? `${host}${otherUser.profileImage}` : otherUser.profileImage)
+        ? otherUser.profileImage
         : null;
       
       // Calculate shared hobbies

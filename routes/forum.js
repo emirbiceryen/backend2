@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { body, validationResult } = require('express-validator');
 const upload = require('../middleware/upload');
 const emailService = require('../utils/emailService');
+const firebaseUploadService = require('../utils/firebaseUploadService');
 
 const isBusinessEventPost = (post) => Boolean(post && (post.isBusinessEvent || post.createdByType === 'business'));
 
@@ -142,11 +143,11 @@ router.get('/posts', auth, async (req, res) => {
 
       const rawAvatar = po.authorAvatar || (populatedAuthor ? populatedAuthor.profileImage : undefined);
       const authorAvatar = rawAvatar
-        ? (rawAvatar.startsWith('/uploads') ? `${host}${rawAvatar}` : rawAvatar)
+        ? rawAvatar
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName || 'User')}&background=3C0270&color=ffffff&size=44`;
 
       const media = Array.isArray(po.media)
-        ? po.media.map((m) => (typeof m === 'string' && m.startsWith('/uploads') ? `${host}${m}` : m))
+        ? po.media
         : po.media;
 
       // Add participants data for events
@@ -202,7 +203,7 @@ router.get('/posts', auth, async (req, res) => {
           businessName: populatedAuthor.businessName,
           businessType: populatedAuthor.businessType,
           profileImage: populatedAuthor.profileImage ? (
-            populatedAuthor.profileImage.startsWith('/uploads') ? `${host}${populatedAuthor.profileImage}` : populatedAuthor.profileImage
+            populatedAuthor.profileImage
           ) : undefined
         } : undefined,
         eventDetails: po.isEvent && po.eventDetails ? {
@@ -292,11 +293,19 @@ router.post('/posts', auth, upload.array('media', 5), [
     console.log('Final title:', finalTitle);
     console.log('Final content:', finalContent);
 
-    // Process uploaded files
+    // Process uploaded files - upload to Firebase Storage
     let mediaUrls = [];
     if (req.files && req.files.length > 0) {
-      mediaUrls = req.files.map(file => `/uploads/${file.filename}`);
-      console.log('Media URLs:', mediaUrls);
+      try {
+        mediaUrls = await firebaseUploadService.uploadMultipleFiles(req.files, 'forum');
+        console.log('Media URLs uploaded to Firebase:', mediaUrls);
+      } catch (uploadError) {
+        console.error('Error uploading media files to Firebase:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload media files'
+        });
+      }
     }
 
     const postData = {
@@ -411,13 +420,8 @@ router.post('/posts', auth, upload.array('media', 5), [
       });
     }
 
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
     const po = post.toObject();
-    const media = Array.isArray(po.media)
-      ? po.media.map((m) => (typeof m === 'string' && m.startsWith('/uploads') ? `${host}${m}` : m))
-      : po.media;
+    const media = po.media || [];
 
     const author = await User.findById(req.user._id).select('name firstName lastName profileImage');
     const authorName = po.authorName || (author ? (
@@ -425,7 +429,7 @@ router.post('/posts', auth, upload.array('media', 5), [
     ) : undefined);
     const rawAvatar = author ? author.profileImage : undefined;
     const authorAvatar = rawAvatar
-      ? (rawAvatar.startsWith('/uploads') ? `${host}${rawAvatar}` : rawAvatar)
+      ? rawAvatar
       : `https://ui-avatars.com/api/?name=${encodeURIComponent(authorName || 'User')}&background=3C0270&color=ffffff&size=44`;
 
     res.status(201).json({
@@ -462,10 +466,10 @@ router.get('/posts/:id', auth, async (req, res) => {
     ) : undefined);
     const rawAvatar = po.authorAvatar || (populatedAuthor ? populatedAuthor.profileImage : undefined);
     const authorAvatar = rawAvatar
-      ? (rawAvatar.startsWith('/uploads') ? `${host}${rawAvatar}` : rawAvatar)
+      ? rawAvatar
       : undefined;
     const media = Array.isArray(po.media)
-      ? po.media.map((m) => (typeof m === 'string' && m.startsWith('/uploads') ? `${host}${m}` : m))
+      ? po.media
       : po.media;
 
     res.json({
