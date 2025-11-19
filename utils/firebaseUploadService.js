@@ -44,13 +44,40 @@ const initializeFirebase = () => {
       
       // Try to parse as JSON
       if (typeof jsonString === 'string') {
-        // Replace escaped newlines and quotes if needed
-        const cleanedJson = jsonString
-          .replace(/\\n/g, '\n')
-          .replace(/\\"/g, '"')
-          .replace(/\\'/g, "'");
+        // Handle multiple levels of escaping that Railway might apply
+        // Railway may double-escape JSON strings, so we need to handle both cases
         
-        serviceAccount = JSON.parse(cleanedJson);
+        let cleanedJson = jsonString;
+        
+        // First, try to unescape common patterns
+        // Handle double-escaped newlines: \\n -> \n
+        cleanedJson = cleanedJson.replace(/\\\\n/g, '\n');
+        // Handle single-escaped newlines: \n -> \n (if not already handled)
+        cleanedJson = cleanedJson.replace(/\\n/g, '\n');
+        
+        // Handle escaped quotes: \" -> "
+        cleanedJson = cleanedJson.replace(/\\"/g, '"');
+        // Handle double-escaped quotes: \\" -> "
+        cleanedJson = cleanedJson.replace(/\\\\"/g, '"');
+        
+        // Handle escaped backslashes: \\ -> \
+        cleanedJson = cleanedJson.replace(/\\\\/g, '\\');
+        
+        // Try to parse
+        try {
+          serviceAccount = JSON.parse(cleanedJson);
+        } catch (firstParseError) {
+          // If first parse fails, try with even more aggressive cleaning
+          console.log('[Firebase] First parse attempt failed, trying more aggressive cleaning...');
+          
+          // Remove all backslashes before newlines and quotes
+          cleanedJson = jsonString
+            .replace(/\\+n/g, '\n')  // One or more backslashes + n -> newline
+            .replace(/\\+"/g, '"')   // One or more backslashes + " -> "
+            .replace(/\\+/g, '\\');  // Multiple backslashes -> single backslash
+          
+          serviceAccount = JSON.parse(cleanedJson);
+        }
       } else {
         serviceAccount = jsonString;
       }
