@@ -15,20 +15,55 @@ const initializeFirebase = () => {
     const firebaseBucket = process.env.FIREBASE_STORAGE_BUCKET;
 
     if (!serviceAccountJson || !firebaseBucket) {
-      console.warn('[Firebase] Service account or bucket not configured. File uploads will fail.');
-      console.warn('[Firebase] Set FIREBASE_SERVICE_ACCOUNT (JSON string) and FIREBASE_STORAGE_BUCKET in environment variables.');
+      console.error('[Firebase] Service account or bucket not configured. File uploads will fail.');
+      console.error('[Firebase] FIREBASE_SERVICE_ACCOUNT:', serviceAccountJson ? 'SET (length: ' + serviceAccountJson.length + ')' : 'NOT SET');
+      console.error('[Firebase] FIREBASE_STORAGE_BUCKET:', firebaseBucket || 'NOT SET');
+      console.error('[Firebase] Set FIREBASE_SERVICE_ACCOUNT (JSON string or base64) and FIREBASE_STORAGE_BUCKET in environment variables.');
       firebaseInitialized = false;
       return;
     }
 
     // Parse service account JSON
+    // Support both direct JSON string and base64 encoded JSON
     let serviceAccount;
     try {
-      serviceAccount = typeof serviceAccountJson === 'string' 
-        ? JSON.parse(serviceAccountJson) 
-        : serviceAccountJson;
+      let jsonString = serviceAccountJson;
+      
+      // Try to decode as base64 first (if it's base64 encoded)
+      try {
+        const decoded = Buffer.from(jsonString, 'base64').toString('utf-8');
+        // If decoded string looks like JSON, use it
+        if (decoded.trim().startsWith('{')) {
+          jsonString = decoded;
+          console.log('[Firebase] Service account was base64 encoded, decoded successfully');
+        }
+      } catch (base64Error) {
+        // Not base64, continue with original string
+        console.log('[Firebase] Service account is not base64 encoded, using as direct JSON string');
+      }
+      
+      // Try to parse as JSON
+      if (typeof jsonString === 'string') {
+        // Replace escaped newlines and quotes if needed
+        const cleanedJson = jsonString
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"')
+          .replace(/\\'/g, "'");
+        
+        serviceAccount = JSON.parse(cleanedJson);
+      } else {
+        serviceAccount = jsonString;
+      }
+      
+      console.log('[Firebase] Service account JSON parsed successfully');
     } catch (parseError) {
       console.error('[Firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT JSON:', parseError.message);
+      console.error('[Firebase] JSON string preview (first 200 chars):', serviceAccountJson.substring(0, 200));
+      console.error('[Firebase] Parse error details:', {
+        name: parseError.name,
+        message: parseError.message,
+        stack: parseError.stack
+      });
       firebaseInitialized = false;
       return;
     }
@@ -71,11 +106,23 @@ const getBucket = () => {
  */
 const uploadFile = async (file, folder = 'uploads', customFileName = null) => {
   try {
+    console.log('[Firebase] Starting file upload...');
+    console.log('[Firebase] File object:', {
+      hasFile: !!file,
+      hasBuffer: !!(file && file.buffer),
+      fieldname: file?.fieldname,
+      originalname: file?.originalname,
+      mimetype: file?.mimetype,
+      size: file?.size,
+      bufferLength: file?.buffer?.length
+    });
+
     if (!file || !file.buffer) {
       throw new Error('Invalid file object. File must have a buffer property (use multer memoryStorage).');
     }
 
     const bucket = getBucket();
+    console.log('[Firebase] Bucket retrieved:', bucket.name);
 
     // Generate unique filename
     const fileExtension = path.extname(file.originalname || 'file');
@@ -127,6 +174,12 @@ const uploadFile = async (file, folder = 'uploads', customFileName = null) => {
     return publicUrl;
   } catch (error) {
     console.error('[Firebase] Upload error:', error.message);
+    console.error('[Firebase] Upload error stack:', error.stack);
+    console.error('[Firebase] Upload error details:', {
+      name: error.name,
+      code: error.code,
+      message: error.message
+    });
     throw error;
   }
 };
