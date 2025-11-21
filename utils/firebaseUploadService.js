@@ -2,6 +2,7 @@ const admin = require('firebase-admin');
 const path = require('path');
 
 // Initialize Firebase Admin SDK
+// Debug: Firebase initialization for Railway environment variables
 let firebaseInitialized = false;
 
 const initializeFirebase = () => {
