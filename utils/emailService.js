@@ -19,6 +19,18 @@ const initializeEmailService = () => {
       return null;
     }
     resendApiKey = emailConfig.resend.apiKey;
+    
+    // Validate API key type
+    if (resendApiKey.startsWith('re_test_')) {
+      console.error('[Email Service] ❌ TEST API KEY DETECTED!');
+      console.error('[Email Service] ❌ Test keys (re_test_) can only send to your own email address.');
+      console.error('[Email Service] ❌ Please use a LIVE API key (re_live_) for production.');
+      console.error('[Email Service] ❌ Get your live key from: https://resend.com/api-keys');
+      return null;
+    } else if (!resendApiKey.startsWith('re_live_')) {
+      console.warn('[Email Service] ⚠️ API key format not recognized. Expected re_live_ or re_test_ prefix.');
+    }
+    
     console.log('[Email Service] ✅ Resend API configured successfully');
     console.log('[Email Service] Resend API Key:', resendApiKey.substring(0, 10) + '...');
     return true;
@@ -111,21 +123,41 @@ const sendEmail = async ({ to, subject, html, text }) => {
     }
 
     try {
-      // Resend requires verified domain or approved email
-      // If using Gmail, we need to use Resend's approved domain or verify the domain
-      // For now, use Resend's default domain if Gmail domain is not verified
-      let fromEmail = emailConfig.from;
+      // Validate and set from email address
+      let fromEmail = emailConfig.from || 'info@hubiiapp.com';
+      
+      // Ensure from email is exactly info@hubiiapp.com
+      if (fromEmail !== 'info@hubiiapp.com') {
+        console.warn(`[Email Service] ⚠️ From email is "${fromEmail}" but expected "info@hubiiapp.com"`);
+        console.warn('[Email Service] ⚠️ Overriding to use info@hubiiapp.com');
+        fromEmail = 'info@hubiiapp.com';
+      }
+      
+      // Validate from email is not empty
+      if (!fromEmail || fromEmail.trim() === '') {
+        console.error('[Email Service] ❌ From email is empty! Using default: info@hubiiapp.com');
+        fromEmail = 'info@hubiiapp.com';
+      }
       
       // Check if from email is Gmail and might not be verified
-      // Use Resend's approved domain format: onboarding@resend.dev (for testing)
-      // Or use a verified domain if available
       if (fromEmail.includes('@gmail.com') || fromEmail.includes('@googlemail.com')) {
-        // Try to use Resend's approved domain or the user's verified domain
-        // If domain is not verified, Resend will reject it
-        // For production, user should verify their domain in Resend dashboard
-        console.warn('[Email Service] Using Gmail address. Make sure domain is verified in Resend dashboard.');
-        console.warn('[Email Service] If email fails, verify domain at https://resend.com/domains');
+        console.error('[Email Service] ❌ Gmail address detected! This should not happen.');
+        console.error('[Email Service] ❌ Using verified domain: info@hubiiapp.com');
+        fromEmail = 'info@hubiiapp.com';
       }
+      
+      // Validate API key is not a test key
+      if (resendApiKey && resendApiKey.startsWith('re_test_')) {
+        console.error('[Email Service] ❌ TEST API KEY DETECTED!');
+        console.error('[Email Service] ❌ Test keys can only send to your own email address.');
+        return { 
+          success: false, 
+          error: 'TEST API KEY detected. Please use a LIVE API key (re_live_) for production. Test keys can only send to your own email address.',
+          details: 'Get your live key from: https://resend.com/api-keys'
+        };
+      }
+
+      console.log(`[Email Service] 📧 Sending email from: ${fromEmail} to: ${to}`);
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -147,15 +179,25 @@ const sendEmail = async ({ to, subject, html, text }) => {
         console.error('[Email Service] Resend API error:', data);
         
         // Provide more helpful error messages
-        if (data.statusCode === 403 && data.message && data.message.includes('domain')) {
-          return { 
-            success: false, 
-            error: 'Domain not verified. Please verify your domain in Resend dashboard at https://resend.com/domains',
-            details: data.message
-          };
+        if (data.statusCode === 403) {
+          if (data.message && (data.message.includes('domain') || data.message.includes('Domain'))) {
+            return { 
+              success: false, 
+              error: 'Domain not verified. Please verify your domain in Resend dashboard at https://resend.com/domains',
+              details: data.message
+            };
+          }
+          if (data.message && (data.message.includes('testing') || data.message.includes('own email'))) {
+            console.error('[Email Service] ❌ TEST API KEY ERROR: You can only send testing emails to your own email address.');
+            return { 
+              success: false, 
+              error: 'TEST API KEY detected. Test keys can only send to your own email address. Please use a LIVE API key (re_live_) for production.',
+              details: 'Get your live key from: https://resend.com/api-keys'
+            };
+          }
         }
         
-        return { success: false, error: data.message || 'Failed to send email' };
+        return { success: false, error: data.message || 'Failed to send email', details: data };
       }
 
       console.log('[Email Service] Email sent via Resend:', data.id);

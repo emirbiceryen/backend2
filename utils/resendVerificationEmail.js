@@ -15,6 +15,20 @@ async function sendVerificationEmail(recipientEmail, verificationCode) {
       error: 'Resend API key is not configured'
     };
   }
+  
+  // Validate API key is not a test key
+  if (RESEND_API_KEY.startsWith('re_test_')) {
+    console.error('[Resend Email] ❌ TEST API KEY DETECTED!');
+    console.error('[Resend Email] ❌ Test keys (re_test_) can only send to your own email address.');
+    console.error('[Resend Email] ❌ Please use a LIVE API key (re_live_) for production.');
+    return {
+      success: false,
+      error: 'TEST API KEY detected. Test keys can only send to your own email address. Please use a LIVE API key (re_live_) for production.',
+      details: 'Get your live key from: https://resend.com/api-keys'
+    };
+  } else if (!RESEND_API_KEY.startsWith('re_live_')) {
+    console.warn('[Resend Email] ⚠️ API key format not recognized. Expected re_live_ or re_test_ prefix.');
+  }
 
   if (!recipientEmail || !verificationCode) {
     console.error('[Resend Email] ❌ Missing required parameters');
@@ -168,7 +182,10 @@ Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.
   `.trim();
 
   try {
-    console.log(`[Resend Email] 📧 Sending verification email to: ${recipientEmail}`);
+    // Ensure from email is exactly info@hubiiapp.com
+    const fromEmail = 'info@hubiiapp.com';
+    
+    console.log(`[Resend Email] 📧 Sending verification email from: ${fromEmail} to: ${recipientEmail}`);
     console.log(`[Resend Email] 🔑 Verification code: ${verificationCode}`);
 
     const response = await fetch('https://api.resend.com/emails', {
@@ -178,7 +195,7 @@ Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'info@hubiiapp.com',
+        from: fromEmail,
         to: [recipientEmail],
         subject: 'Doğrulama Kodu',
         html: emailHtml,
@@ -193,12 +210,20 @@ Eğer bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.
       
       // Provide helpful error messages
       if (data.statusCode === 403) {
-        if (data.message && data.message.includes('domain')) {
+        if (data.message && (data.message.includes('domain') || data.message.includes('Domain'))) {
           console.error('[Resend Email] ❌ Domain not verified. Please verify "hubiiapp.com" domain in Resend dashboard.');
           return {
             success: false,
             error: 'Domain not verified. Please verify your domain in Resend dashboard at https://resend.com/domains',
             details: data.message
+          };
+        }
+        if (data.message && (data.message.includes('testing') || data.message.includes('own email'))) {
+          console.error('[Resend Email] ❌ TEST API KEY ERROR: You can only send testing emails to your own email address.');
+          return {
+            success: false,
+            error: 'TEST API KEY detected. Test keys can only send to your own email address. Please use a LIVE API key (re_live_) for production.',
+            details: 'Get your live key from: https://resend.com/api-keys'
           };
         }
       }

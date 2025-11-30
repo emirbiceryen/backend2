@@ -7,7 +7,7 @@ const emailVerificationEnabled = parseBoolean(process.env.EMAIL_VERIFICATION_ENA
 
 const emailVerificationConfig = {
   enabled: emailVerificationEnabled,
-  from: process.env.EMAIL_VERIFICATION_FROM || '',
+  from: process.env.EMAIL_VERIFICATION_FROM || 'info@hubiiapp.com',
   baseUrl: process.env.EMAIL_VERIFICATION_BASE_URL || '',
   provider: process.env.EMAIL_PROVIDER || 'smtp',
   resend: {
@@ -27,6 +27,16 @@ if (emailVerificationEnabled) {
   console.log('[Email Verification] Provider:', emailVerificationConfig.provider);
   console.log('[Email Verification] From:', emailVerificationConfig.from);
   
+  // Validate from email address
+  if (!emailVerificationConfig.from || emailVerificationConfig.from.trim() === '') {
+    console.error('[Email Verification] ❌ EMAIL_VERIFICATION_FROM is empty! Using default: info@hubiiapp.com');
+    emailVerificationConfig.from = 'info@hubiiapp.com';
+  } else if (emailVerificationConfig.from !== 'info@hubiiapp.com') {
+    console.warn(`[Email Verification] ⚠️ From email is "${emailVerificationConfig.from}" but expected "info@hubiiapp.com"`);
+    console.warn('[Email Verification] ⚠️ Overriding to use info@hubiiapp.com');
+    emailVerificationConfig.from = 'info@hubiiapp.com';
+  }
+  
   const missing = [];
 
   if (!emailVerificationConfig.from) {
@@ -43,7 +53,18 @@ if (emailVerificationEnabled) {
       missing.push('RESEND_API_KEY');
       console.warn('[Email Verification] ❌ RESEND_API_KEY is missing!');
     } else {
-      console.log('[Email Verification] ✅ RESEND_API_KEY is configured');
+      // Validate API key type
+      if (emailVerificationConfig.resend.apiKey.startsWith('re_test_')) {
+        console.error('[Email Verification] ❌ TEST API KEY DETECTED!');
+        console.error('[Email Verification] ❌ Test keys (re_test_) can only send to your own email address.');
+        console.error('[Email Verification] ❌ Please use a LIVE API key (re_live_) for production.');
+        console.error('[Email Verification] ❌ Get your live key from: https://resend.com/api-keys');
+      } else if (emailVerificationConfig.resend.apiKey.startsWith('re_live_')) {
+        console.log('[Email Verification] ✅ RESEND_API_KEY is configured (LIVE key)');
+      } else {
+        console.warn('[Email Verification] ⚠️ API key format not recognized. Expected re_live_ or re_test_ prefix.');
+        console.log('[Email Verification] ✅ RESEND_API_KEY is configured');
+      }
     }
   } else if (emailVerificationConfig.provider === 'smtp') {
     if (!emailVerificationConfig.smtp.host) missing.push('SMTP_HOST');
