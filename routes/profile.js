@@ -169,15 +169,25 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     // Handle profile image upload
     if (req.file) {
       console.log('File uploaded successfully:', req.file.originalname);
+      console.log('File details:', {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        hasBuffer: !!req.file.buffer,
+        bufferLength: req.file.buffer ? req.file.buffer.length : 0
+      });
       try {
         const imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
         updateData.profileImage = imageUrl;
         console.log('Profile image uploaded to Firebase:', imageUrl);
       } catch (uploadError) {
         console.error('Error uploading profile image to Firebase:', uploadError);
+        console.error('Upload error stack:', uploadError.stack);
         return res.status(500).json({
           success: false,
-          message: 'Failed to upload profile image'
+          message: 'Failed to upload profile image',
+          error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
         });
       }
     } else {
@@ -418,13 +428,23 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
     // Upload to Firebase Storage
     let imageUrl;
     try {
+      console.log('File details for upload:', {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        hasBuffer: !!req.file.buffer,
+        bufferLength: req.file.buffer ? req.file.buffer.length : 0
+      });
       imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
       console.log('Profile image uploaded to Firebase:', imageUrl);
     } catch (uploadError) {
       console.error('Error uploading profile image to Firebase:', uploadError);
+      console.error('Upload error stack:', uploadError.stack);
       return res.status(500).json({
         success: false,
-        message: 'Failed to upload profile image'
+        message: 'Failed to upload profile image',
+        error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
       });
     }
 

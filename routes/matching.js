@@ -416,90 +416,8 @@ router.get('/pending', auth, async (req, res) => {
 });
 
 // @route   GET /api/matching/matches
-// @desc    Get user's mutual matches
+// @desc    Get user's confirmed matches (mutual matches)
 // @access  Private
-router.get('/matches', auth, async (req, res) => {
-  try {
-    const matches = await Match.find({
-      $or: [
-        { user1: req.user._id },
-        { user2: req.user._id }
-      ],
-      status: { $in: ['mutual', 'ended'] },
-      isActive: true
-    })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
-    .sort({ lastInteraction: -1 });
-
-    // Fetch hobby names for all users
-    const allUserHobbyIds = [...new Set(matches.flatMap(match => {
-      const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
-      return otherUser.hobbies || [];
-    }))];
-    const hobbies = await Hobby.find({ _id: { $in: allUserHobbyIds } }).select('name');
-    const hobbyMap = {};
-    hobbies.forEach(hobby => {
-      hobbyMap[hobby._id.toString()] = hobby.name;
-    });
-
-    const host = process.env.NODE_ENV === 'production' 
-      ? 'https://backend-production-7063.up.railway.app'
-      : `${req.protocol}://${req.get('host')}`;
-    const formattedMatches = matches
-      .filter(match => {
-        // Filter out matches where both users have already rated each other
-        const bothRated = match.ratings && match.ratings.user1Rated && match.ratings.user2Rated;
-        return !bothRated;
-      })
-      .map(match => {
-        const otherUser = match.user1._id.equals(req.user._id) ? match.user2 : match.user1;
-        const otherUserHobbies = match.user1._id.equals(req.user._id) ? match.user2.hobbies : match.user1.hobbies;
-        
-        // Calculate shared hobbies
-        const currentUserHobbyIds = req.user.hobbies || [];
-        const otherUserHobbiesArray = otherUserHobbies || [];
-        
-        // Find shared hobby IDs
-        const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
-          otherUserHobbiesArray.includes(hobbyId)
-        );
-        
-        // Get hobby names
-        const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
-        
-        // Format profile image URL
-        const formattedProfileImage = otherUser.profileImage 
-          ? otherUser.profileImage
-          : null;
-        
-        return {
-          id: match._id,
-          user: {
-            ...otherUser.toObject(),
-            profileImage: formattedProfileImage
-          },
-          sharedHobbies: sharedHobbyIds,
-          sharedHobbyNames: sharedHobbyNames,
-          matchedAt: match.matchedAt,
-          lastInteraction: match.lastInteraction
-        };
-      });
-
-    res.json({
-      success: true,
-      matches: formattedMatches
-    });
-  } catch (error) {
-    console.error('Get matches error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
-
-// Get user's matches (for dashboard)
 router.get('/matches', auth, async (req, res) => {
   try {
     const currentUser = req.user;
@@ -507,13 +425,14 @@ router.get('/matches', auth, async (req, res) => {
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
 
-    // Find confirmed matches
+    // Find confirmed matches (status should be 'mutual' not 'matched')
     const matches = await Match.find({
       $or: [
         { user1: currentUser._id },
         { user2: currentUser._id }
       ],
-      status: 'matched'
+      status: 'mutual',
+      isActive: true
     })
     .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
     .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
@@ -555,9 +474,18 @@ router.get('/matches', auth, async (req, res) => {
       
       // Get skill level for the first shared hobby
       const firstSharedHobbyId = sharedHobbyIds[0];
-      const sharedHobbySkillLevel = otherUser.hobbySkillLevels && firstSharedHobbyId 
-        ? otherUser.hobbySkillLevels.get(firstSharedHobbyId) 
-        : null;
+      let sharedHobbySkillLevel = null;
+      if (otherUser.hobbySkillLevels && firstSharedHobbyId) {
+        try {
+          if (otherUser.hobbySkillLevels instanceof Map) {
+            sharedHobbySkillLevel = otherUser.hobbySkillLevels.get(firstSharedHobbyId.toString());
+          } else if (typeof otherUser.hobbySkillLevels === 'object' && otherUser.hobbySkillLevels !== null) {
+            sharedHobbySkillLevel = otherUser.hobbySkillLevels[firstSharedHobbyId.toString()];
+          }
+        } catch (e) {
+          console.error('Error getting skill level:', e);
+        }
+      }
       
       return {
         id: match._id,

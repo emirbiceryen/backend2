@@ -171,6 +171,29 @@ router.post('/:userId/message', [
     chat.lastMessage = new Date();
     await chat.save();
 
+    // Emit WebSocket event to notify the other user
+    const io = req.app.get('io');
+    const connectedUsers = req.app.get('connectedUsers');
+    
+    if (io && connectedUsers) {
+      const targetSocketId = connectedUsers.get(userId);
+      
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('new_message', {
+          chatId: chat._id.toString(),
+          senderId: req.user._id.toString(),
+          senderName: req.user.name,
+          senderImage: req.user.profileImage,
+          message: content,
+          content: content,
+          timestamp: new Date()
+        });
+        console.log(`[WebSocket] Message notification sent to user ${userId} (socket: ${targetSocketId})`);
+      } else {
+        console.log(`[WebSocket] User ${userId} is not connected, message saved but not delivered in real-time`);
+      }
+    }
+
     // Populate the updated chat
     const populatedChat = await Chat.findById(chat._id)
       .populate('participants', 'name profileImage')

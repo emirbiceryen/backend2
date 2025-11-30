@@ -100,6 +100,9 @@ const healthRoutes = require('./routes/health');
 // WebSocket connection management
 const connectedUsers = new Map();
 
+// Make connectedUsers accessible to routes
+app.set('connectedUsers', connectedUsers);
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -205,6 +208,9 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// Make io accessible to routes
+app.set('io', io);
 
 // Routes
 app.use('/api/auth', authRoutes);
