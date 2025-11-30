@@ -9,6 +9,15 @@ const Tracing = require('@sentry/tracing');
 require('dotenv').config({ path: './config.env' });
 require('./utils/emailConfig');
 
+// Initialize Firebase Storage (check configuration)
+const firebaseUploadService = require('./utils/firebaseUploadService');
+if (!firebaseUploadService.isInitialized()) {
+  console.warn('[Server] ⚠️ Firebase Storage is not initialized. File uploads will fail.');
+  console.warn('[Server] ⚠️ Check FIREBASE_SERVICE_ACCOUNT and FIREBASE_STORAGE_BUCKET environment variables.');
+} else {
+  console.log('[Server] ✅ Firebase Storage initialized successfully');
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {

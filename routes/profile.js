@@ -168,8 +168,19 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     
     // Handle profile image upload
     if (req.file) {
-      console.log('File uploaded successfully:', req.file.originalname);
-      console.log('File details:', {
+      // Check if Firebase is initialized
+      if (!firebaseUploadService.isInitialized()) {
+        console.error('[Profile Update] Firebase is not initialized');
+        return res.status(500).json({
+          success: false,
+          message: 'File upload service is not configured',
+          error: 'Firebase Storage is not initialized. Please check server configuration.',
+          details: 'Check FIREBASE_SERVICE_ACCOUNT and FIREBASE_STORAGE_BUCKET environment variables.'
+        });
+      }
+
+      console.log('[Profile Update] File uploaded successfully:', req.file.originalname);
+      console.log('[Profile Update] File details:', {
         fieldname: req.file.fieldname,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -180,18 +191,35 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       try {
         const imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
         updateData.profileImage = imageUrl;
-        console.log('Profile image uploaded to Firebase:', imageUrl);
+        console.log('[Profile Update] ✅ Profile image uploaded to Firebase:', imageUrl);
       } catch (uploadError) {
-        console.error('Error uploading profile image to Firebase:', uploadError);
-        console.error('Upload error stack:', uploadError.stack);
+        console.error('[Profile Update] ❌ Error uploading profile image to Firebase:', uploadError);
+        console.error('[Profile Update] Error message:', uploadError.message);
+        console.error('[Profile Update] Error stack:', uploadError.stack);
+        
+        // Provide more detailed error information
+        let errorMessage = 'Failed to upload profile image';
+        let errorDetails = null;
+        
+        if (uploadError.message && uploadError.message.includes('not initialized')) {
+          errorMessage = 'File upload service is not configured';
+          errorDetails = 'Firebase Storage is not initialized. Please check FIREBASE_SERVICE_ACCOUNT and FIREBASE_STORAGE_BUCKET environment variables.';
+        } else if (uploadError.message && uploadError.message.includes('Invalid file')) {
+          errorMessage = 'Invalid file format';
+          errorDetails = uploadError.message;
+        } else if (uploadError.code) {
+          errorDetails = `Firebase error code: ${uploadError.code}`;
+        }
+        
         return res.status(500).json({
           success: false,
-          message: 'Failed to upload profile image',
-          error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
+          message: errorMessage,
+          error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined,
+          details: errorDetails || (process.env.NODE_ENV === 'development' ? uploadError.message : 'Check server logs for details')
         });
       }
     } else {
-      console.log('No file uploaded');
+      console.log('[Profile Update] No file uploaded');
     }
     
     if (location !== undefined && location !== null) {
@@ -425,10 +453,21 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
       });
     }
 
+    // Check if Firebase is initialized
+    if (!firebaseUploadService.isInitialized()) {
+      console.error('[Profile Upload] Firebase is not initialized');
+      return res.status(500).json({
+        success: false,
+        message: 'File upload service is not configured',
+        error: 'Firebase Storage is not initialized. Please check server configuration.',
+        details: 'Check FIREBASE_SERVICE_ACCOUNT and FIREBASE_STORAGE_BUCKET environment variables.'
+      });
+    }
+
     // Upload to Firebase Storage
     let imageUrl;
     try {
-      console.log('File details for upload:', {
+      console.log('[Profile Upload] File details for upload:', {
         fieldname: req.file.fieldname,
         originalname: req.file.originalname,
         mimetype: req.file.mimetype,
@@ -437,14 +476,31 @@ router.post('/upload-image', auth, upload.single('profileImage'), async (req, re
         bufferLength: req.file.buffer ? req.file.buffer.length : 0
       });
       imageUrl = await firebaseUploadService.uploadFile(req.file, 'profile');
-      console.log('Profile image uploaded to Firebase:', imageUrl);
+      console.log('[Profile Upload] ✅ Profile image uploaded to Firebase:', imageUrl);
     } catch (uploadError) {
-      console.error('Error uploading profile image to Firebase:', uploadError);
-      console.error('Upload error stack:', uploadError.stack);
+      console.error('[Profile Upload] ❌ Error uploading profile image to Firebase:', uploadError);
+      console.error('[Profile Upload] Error message:', uploadError.message);
+      console.error('[Profile Upload] Error stack:', uploadError.stack);
+      
+      // Provide more detailed error information
+      let errorMessage = 'Failed to upload profile image';
+      let errorDetails = null;
+      
+      if (uploadError.message && uploadError.message.includes('not initialized')) {
+        errorMessage = 'File upload service is not configured';
+        errorDetails = 'Firebase Storage is not initialized. Please check FIREBASE_SERVICE_ACCOUNT and FIREBASE_STORAGE_BUCKET environment variables.';
+      } else if (uploadError.message && uploadError.message.includes('Invalid file')) {
+        errorMessage = 'Invalid file format';
+        errorDetails = uploadError.message;
+      } else if (uploadError.code) {
+        errorDetails = `Firebase error code: ${uploadError.code}`;
+      }
+      
       return res.status(500).json({
         success: false,
-        message: 'Failed to upload profile image',
-        error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined
+        message: errorMessage,
+        error: process.env.NODE_ENV === 'development' ? uploadError.message : undefined,
+        details: errorDetails || (process.env.NODE_ENV === 'development' ? uploadError.message : 'Check server logs for details')
       });
     }
 
