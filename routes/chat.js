@@ -260,20 +260,26 @@ router.get('/potential/users', auth, async (req, res) => {
     const host = process.env.NODE_ENV === 'production' 
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
-    const potentialUsers = matches.map(match => {
-      const otherUser = match.user1._id.toString() === req.user._id.toString() ? match.user2 : match.user1;
-      
-      // Format profile image URL
-      const formattedProfileImage = otherUser.profileImage 
-        ? otherUser.profileImage
-        : null;
-      
-      return {
-        _id: otherUser._id,
-        name: otherUser.name,
-        profileImage: formattedProfileImage
-      };
-    });
+    const potentialUsers = matches
+      .map(match => {
+        const otherUser = match.user1._id.toString() === req.user._id.toString() ? match.user2 : match.user1;
+        
+        if (!otherUser) {
+          return null;
+        }
+        
+        // Format profile image URL
+        const formattedProfileImage = otherUser.profileImage 
+          ? otherUser.profileImage
+          : null;
+        
+        return {
+          _id: otherUser._id,
+          name: otherUser.name,
+          profileImage: formattedProfileImage
+        };
+      })
+      .filter(user => user !== null);
 
     res.json({ success: true, users: potentialUsers });
   } catch (error) {

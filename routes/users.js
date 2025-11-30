@@ -116,6 +116,10 @@ router.get('/recent-activities', auth, async (req, res) => {
         ? match.user2 
         : match.user1;
       
+      if (!otherUser) {
+        return;
+      }
+      
       activities.push({
         id: `match_${match._id}`,
         type: 'match',
@@ -140,6 +144,10 @@ router.get('/recent-activities', auth, async (req, res) => {
     recentChats.forEach(chat => {
       const otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
       const lastMessage = chat.messages[chat.messages.length - 1];
+      
+      if (!otherParticipant) {
+        return;
+      }
       
       if (lastMessage && lastMessage.sender.toString() !== currentUser._id.toString()) {
         activities.push({
@@ -168,6 +176,10 @@ router.get('/recent-activities', auth, async (req, res) => {
     .limit(2);
 
     recentTeams.forEach(team => {
+      if (!team.captain) {
+        return;
+      }
+      
       const isNewMember = team.members.some(member => 
         member._id && member._id.toString() === currentUser._id.toString()
       ) && team.captain._id.toString() !== currentUser._id.toString();
