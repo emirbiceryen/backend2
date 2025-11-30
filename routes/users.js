@@ -195,9 +195,11 @@ router.get('/recent-activities', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching recent activities:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

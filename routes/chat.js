@@ -22,6 +22,10 @@ router.get('/', auth, async (req, res) => {
     const formattedChats = chats.map(chat => {
       const otherParticipant = chat.participants.find(p => p._id.toString() !== req.user._id.toString());
       
+      if (!otherParticipant) {
+        return null;
+      }
+      
       // Format profile image URL
       const formattedProfileImage = otherParticipant?.profileImage 
         ? otherParticipant.profileImage
@@ -46,12 +50,17 @@ router.get('/', auth, async (req, res) => {
         } : null,
         lastMessageTime: chat.lastMessage
       };
-    });
+    }).filter(chat => chat !== null);
 
     res.json({ success: true, chats: formattedChats });
   } catch (error) {
     console.error('Error fetching chats:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -125,7 +134,12 @@ router.get('/:userId', auth, async (req, res) => {
     res.json({ success: true, chat: formattedChat });
   } catch (error) {
     console.error('Error fetching chat:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -222,7 +236,12 @@ router.post('/:userId/message', [
     res.json({ success: true, chat: formattedChat });
   } catch (error) {
     console.error('Error sending message:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -259,7 +278,12 @@ router.get('/potential/users', auth, async (req, res) => {
     res.json({ success: true, users: potentialUsers });
   } catch (error) {
     console.error('Error fetching potential chat users:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

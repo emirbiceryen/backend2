@@ -395,6 +395,11 @@ router.get('/pending', auth, async (req, res) => {
 router.get('/matches', auth, async (req, res) => {
   try {
     const currentUser = req.user;
+    
+    // Get current user with hobbies populated
+    const currentUserWithHobbies = await User.findById(currentUser._id)
+      .select('hobbies');
+    
     const host = process.env.NODE_ENV === 'production' 
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
@@ -412,11 +417,12 @@ router.get('/matches', auth, async (req, res) => {
     .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies')
     .sort({ matchedAt: -1 });
 
-    // Get all hobby IDs from all matches
-    const allHobbyIds = [...new Set(matches.flatMap(match => [
-      ...(match.user1.hobbies || []),
-      ...(match.user2.hobbies || [])
-    ]))];
+    // Get all hobby IDs from all matches (convert to strings)
+    const allHobbyIds = [...new Set(matches.flatMap(match => {
+      const user1Hobbies = (match.user1?.hobbies || []).map(h => h.toString ? h.toString() : String(h));
+      const user2Hobbies = (match.user2?.hobbies || []).map(h => h.toString ? h.toString() : String(h));
+      return [...user1Hobbies, ...user2Hobbies];
+    }))];
     
     // Fetch hobby names
     const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name');
@@ -425,22 +431,32 @@ router.get('/matches', auth, async (req, res) => {
       hobbyMap[hobby._id.toString()] = hobby.name;
     });
 
+    // Get current user's hobby IDs as strings
+    const currentUserHobbyIds = (currentUserWithHobbies?.hobbies || []).map(h => 
+      h.toString ? h.toString() : String(h)
+    );
+
     // Format matches
     const formattedMatches = matches.map(match => {
       const otherUser = match.user1._id.toString() === currentUser._id.toString() 
         ? match.user2 
         : match.user1;
       
+      if (!otherUser) {
+        return null;
+      }
+      
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
         ? otherUser.profileImage
         : null;
       
-      // Calculate shared hobbies
-      const currentUserHobbyIds = currentUser.hobbies || [];
-      const otherUserHobbiesArray = otherUser.hobbies || [];
+      // Calculate shared hobbies - convert all to strings for comparison
+      const otherUserHobbiesArray = (otherUser.hobbies || []).map(h => 
+        h.toString ? h.toString() : String(h)
+      );
       const sharedHobbyIds = currentUserHobbyIds.filter(hobbyId => 
-        otherUserHobbiesArray.includes(hobbyId)
+        otherUserHobbiesArray.includes(hobbyId.toString())
       );
       
       // Get hobby names
@@ -457,7 +473,7 @@ router.get('/matches', auth, async (req, res) => {
         matchedAt: match.matchedAt || match.createdAt,
         lastInteraction: match.lastInteraction
       };
-    });
+    }).filter(match => match !== null);
 
     res.json({
       success: true,
@@ -465,9 +481,11 @@ router.get('/matches', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Get user matches error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
