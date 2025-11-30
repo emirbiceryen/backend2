@@ -39,9 +39,8 @@ async function migrateUserHobbies() {
       if (hasOldIds) {
         console.log('User has old hobby IDs, clearing hobbies array');
         
-        // Clear hobbies and hobbySkillLevels
+        // Clear hobbies
         user.hobbies = [];
-        user.hobbySkillLevels = {};
         
         await user.save();
         console.log('Cleared hobbies for user:', user.name);
@@ -60,4 +59,6 @@ async function migrateUserHobbies() {
 }
 
 migrateUserHobbies();
+
+
 

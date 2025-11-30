@@ -97,3 +97,5 @@ Firebase Storage'da dosyalar şu klasörlerde saklanır:
 - Dosya URL'leri doğrudan Firebase public URL formatında (örn: `https://storage.googleapis.com/bucket-name/folder/filename`)
 - Frontend'de değişiklik yapılmasına gerek yok, FormData ile upload edilen dosyalar çalışmaya devam ediyor
 
+
+

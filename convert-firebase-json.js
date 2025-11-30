@@ -22,3 +22,5 @@ fs.writeFileSync(outputPath, escapedJsonString, 'utf8');
 console.log(`✅ Escaped JSON saved to: ${outputPath}\n`);
 console.log('📋 Copy the string above and paste it as FIREBASE_SERVICE_ACCOUNT in Railway\n');
 
+
+

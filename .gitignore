@@ -5,4 +5,7 @@ config.env
 uploads/
 hubi-photos-firebase-adminsdk-*.json
 *-firebase-adminsdk-*.json
+firebase-service-account-escaped.txt
+
+
 

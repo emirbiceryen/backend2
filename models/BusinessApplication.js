@@ -32,10 +32,10 @@ const businessApplicationSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
-  documents: [{
-    type: String, // File paths or URLs
+  documents: {
+    type: [String], // File paths or URLs
     default: []
-  }],
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
@@ -66,4 +66,6 @@ businessApplicationSchema.index({ status: 1, createdAt: -1 });
 businessApplicationSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('BusinessApplication', businessApplicationSchema);
+
+
 

@@ -36,8 +36,7 @@ const getNotificationTitle = (type) => {
 // @access  Private
 router.put('/hobbies', auth, [
   body('hobbies').isArray().withMessage('Hobbies must be an array'),
-  body('hobbies.*').isString().withMessage('Each hobby must be a string'),
-  body('hobbySkillLevels').optional().isObject().withMessage('Hobby skill levels must be an object')
+  body('hobbies.*').isString().withMessage('Each hobby must be a string')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -49,7 +48,7 @@ router.put('/hobbies', auth, [
       });
     }
 
-    const { hobbies, hobbySkillLevels } = req.body;
+    const { hobbies } = req.body;
     const currentUser = req.user;
 
     // Check if user has active premium subscription
@@ -65,27 +64,10 @@ router.put('/hobbies', auth, [
       });
     }
 
-    // Validate skill levels if provided
-    if (hobbySkillLevels) {
-      for (const [hobbyId, skillLevel] of Object.entries(hobbySkillLevels)) {
-        if (typeof skillLevel !== 'number' || skillLevel < 1 || skillLevel > 10) {
-          return res.status(400).json({
-            success: false,
-            message: `Skill level for hobby ${hobbyId} must be a number between 1 and 10`
-          });
-        }
-      }
-    }
-
     const updateData = { 
       hobbies,
       isProfileComplete: false // Profile is not complete until user goes through all registration steps
     };
-
-    // Add hobby skill levels if provided
-    if (hobbySkillLevels) {
-      updateData.hobbySkillLevels = hobbySkillLevels;
-    }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -421,9 +403,8 @@ router.post('/clear-hobbies', auth, async (req, res) => {
   try {
     const currentUser = req.user;
     
-    // Clear hobbies and hobbySkillLevels
+    // Clear hobbies
     currentUser.hobbies = [];
-    currentUser.hobbySkillLevels = {};
     
     await currentUser.save();
     

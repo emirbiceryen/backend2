@@ -29,7 +29,7 @@ router.get('/potential', auth, async (req, res) => {
     // Get current user with populated hobbies
     const currentUserWithHobbies = await User.findById(currentUser._id)
       .populate('hobbies', '_id name')
-      .select('hobbies hobbySkillLevels');
+      .select('hobbies');
     
     if (!currentUserWithHobbies || !currentUserWithHobbies.hobbies || currentUserWithHobbies.hobbies.length === 0) {
       return res.json({
@@ -50,7 +50,7 @@ router.get('/potential', auth, async (req, res) => {
       hobbies: { $exists: true, $ne: [] }
     })
     .populate('hobbies', '_id name')
-    .select('firstName lastName name bio location age hobbies hobbySkillLevels profileImage averageRating totalRatings')
+    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings')
     .limit(10);
 
     console.log('=== MATCHING DEBUG ===');
@@ -116,29 +116,10 @@ router.get('/potential', auth, async (req, res) => {
         ? match.profileImage
         : null;
 
-      // Get skill level for the first shared hobby (the one that will be displayed)
-      const firstSharedHobbyId = match.sharedHobbies[0];
-      let sharedHobbySkillLevel = null;
-      
-      if (match.hobbySkillLevels && firstSharedHobbyId) {
-        try {
-          // Check if hobbySkillLevels is a Map or object
-          if (match.hobbySkillLevels instanceof Map) {
-            sharedHobbySkillLevel = match.hobbySkillLevels.get(firstSharedHobbyId.toString());
-          } else if (typeof match.hobbySkillLevels === 'object' && match.hobbySkillLevels !== null) {
-            sharedHobbySkillLevel = match.hobbySkillLevels[firstSharedHobbyId.toString()];
-          }
-        } catch (e) {
-          console.error('Error getting skill level:', e);
-          sharedHobbySkillLevel = null;
-        }
-      }
-
       return {
         ...match,
         profileImage: formattedProfileImage,
-        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId),
-        sharedHobbySkillLevel: sharedHobbySkillLevel
+        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId)
       };
     });
 
@@ -323,8 +304,8 @@ router.get('/pending', auth, async (req, res) => {
       ],
       status: 'pending'
     })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies hobbySkillLevels')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies hobbySkillLevels')
+    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
+    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
     .sort({ createdAt: -1 });
 
     console.log(`Found ${allMatches.length} pending matches for user ${req.user._id}`);
@@ -379,12 +360,6 @@ router.get('/pending', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
 
-      // Get skill level for the first shared hobby
-      const firstSharedHobbyId = sharedHobbyIds[0];
-      const sharedHobbySkillLevel = otherUser.hobbySkillLevels && firstSharedHobbyId 
-        ? otherUser.hobbySkillLevels.get(firstSharedHobbyId) 
-        : null;
-
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
         ? otherUser.profileImage
@@ -394,8 +369,7 @@ router.get('/pending', auth, async (req, res) => {
         id: match._id,
         user: {
           ...otherUser.toObject(),
-          profileImage: formattedProfileImage,
-          sharedHobbySkillLevel: sharedHobbySkillLevel
+          profileImage: formattedProfileImage
         },
         sharedHobbies: sharedHobbyNames,
         likedAt: match.createdAt
@@ -434,8 +408,8 @@ router.get('/matches', auth, async (req, res) => {
       status: 'mutual',
       isActive: true
     })
-    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
-    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies hobbySkillLevels')
+    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies')
+    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies')
     .sort({ matchedAt: -1 });
 
     // Get all hobby IDs from all matches
@@ -472,21 +446,6 @@ router.get('/matches', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
       
-      // Get skill level for the first shared hobby
-      const firstSharedHobbyId = sharedHobbyIds[0];
-      let sharedHobbySkillLevel = null;
-      if (otherUser.hobbySkillLevels && firstSharedHobbyId) {
-        try {
-          if (otherUser.hobbySkillLevels instanceof Map) {
-            sharedHobbySkillLevel = otherUser.hobbySkillLevels.get(firstSharedHobbyId.toString());
-          } else if (typeof otherUser.hobbySkillLevels === 'object' && otherUser.hobbySkillLevels !== null) {
-            sharedHobbySkillLevel = otherUser.hobbySkillLevels[firstSharedHobbyId.toString()];
-          }
-        } catch (e) {
-          console.error('Error getting skill level:', e);
-        }
-      }
-      
       return {
         id: match._id,
         user: {
@@ -495,7 +454,6 @@ router.get('/matches', auth, async (req, res) => {
         },
         sharedHobbies: sharedHobbyIds,
         sharedHobbyNames: sharedHobbyNames,
-        sharedHobbySkillLevel: sharedHobbySkillLevel,
         matchedAt: match.matchedAt || match.createdAt,
         lastInteraction: match.lastInteraction
       };
