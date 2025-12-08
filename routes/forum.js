@@ -192,11 +192,42 @@ router.get('/posts', auth, async (req, res) => {
         ? po.eventDetails.applications.find(app => app.userId && app.userId.toString() === req.user._id.toString())
         : null;
 
+      // Format comments with author avatars
+      const formattedComments = await Promise.all((po.comments || []).map(async (comment) => {
+        if (!comment.authorId) {
+          return comment;
+        }
+        
+        const commentAuthor = await User.findById(comment.authorId).select('name firstName lastName profileImage');
+        if (commentAuthor) {
+          const commentAuthorName = comment.authorName || (
+            commentAuthor.firstName && commentAuthor.lastName
+              ? `${commentAuthor.firstName} ${commentAuthor.lastName}`
+              : commentAuthor.name
+          );
+          const commentAuthorAvatar = commentAuthor.profileImage || 
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(commentAuthorName || 'User')}&background=3C0270&color=ffffff&size=40`;
+          
+          return {
+            ...comment,
+            authorName: commentAuthorName,
+            authorAvatar: commentAuthorAvatar,
+            author: {
+              _id: commentAuthor._id,
+              name: commentAuthorName,
+              profileImage: commentAuthorAvatar
+            }
+          };
+        }
+        return comment;
+      }));
+
       return {
         ...po,
         authorName,
         authorAvatar,
         media,
+        comments: formattedComments,
         isBusinessEvent: po.isBusinessEvent || (populatedAuthor && populatedAuthor.accountType === 'business'),
         createdByType: po.createdByType || (populatedAuthor && populatedAuthor.accountType === 'business' ? 'business' : 'individual'),
         businessInfo: populatedAuthor && populatedAuthor.accountType === 'business' ? {
@@ -472,9 +503,39 @@ router.get('/posts/:id', auth, async (req, res) => {
       ? po.media
       : po.media;
 
+    // Format comments with author avatars
+    const formattedComments = await Promise.all((po.comments || []).map(async (comment) => {
+      if (!comment.authorId) {
+        return comment;
+      }
+      
+      const commentAuthor = await User.findById(comment.authorId).select('name firstName lastName profileImage');
+      if (commentAuthor) {
+        const commentAuthorName = comment.authorName || (
+          commentAuthor.firstName && commentAuthor.lastName
+            ? `${commentAuthor.firstName} ${commentAuthor.lastName}`
+            : commentAuthor.name
+        );
+        const commentAuthorAvatar = commentAuthor.profileImage || 
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(commentAuthorName || 'User')}&background=3C0270&color=ffffff&size=40`;
+        
+        return {
+          ...comment,
+          authorName: commentAuthorName,
+          authorAvatar: commentAuthorAvatar,
+          author: {
+            _id: commentAuthor._id,
+            name: commentAuthorName,
+            profileImage: commentAuthorAvatar
+          }
+        };
+      }
+      return comment;
+    }));
+
     res.json({
       success: true,
-      post: { ...po, authorName, authorAvatar, media }
+      post: { ...po, authorName, authorAvatar, media, comments: formattedComments }
     });
   } catch (error) {
     console.error('Error fetching post:', error);
@@ -538,19 +599,40 @@ router.post('/posts/:id/comments', auth, [
       return res.status(404).json({ success: false, message: 'Post not found' });
     }
 
+    const User = require('../models/User');
+    const commentAuthor = await User.findById(req.user._id).select('name firstName lastName profileImage');
+    const commentAuthorName = commentAuthor ? (
+      commentAuthor.firstName && commentAuthor.lastName
+        ? `${commentAuthor.firstName} ${commentAuthor.lastName}`
+        : commentAuthor.name
+    ) : req.user.name;
+    const commentAuthorAvatar = commentAuthor?.profileImage || 
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(commentAuthorName || 'User')}&background=3C0270&color=ffffff&size=40`;
+
     const comment = {
       authorId: req.user._id,
-      authorName: req.user.name,
+      authorName: commentAuthorName,
       content: req.body.content
     };
 
     post.comments.push(comment);
     await post.save();
 
+    // Format the comment with avatar for response
+    const formattedComment = {
+      ...comment,
+      authorAvatar: commentAuthorAvatar,
+      author: {
+        _id: req.user._id,
+        name: commentAuthorName,
+        profileImage: commentAuthorAvatar
+      }
+    };
+
     res.json({
       success: true,
       message: 'Comment added successfully',
-      comment
+      comment: formattedComment
     });
   } catch (error) {
     console.error('Error adding comment:', error);
