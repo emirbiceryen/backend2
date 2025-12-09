@@ -70,18 +70,8 @@ const userSchema = new mongoose.Schema({
     default: 0
   },
   location: {
-    city: {
-      type: String,
-      maxlength: [100, 'City cannot be more than 100 characters']
-    },
-    state: {
-      type: String,
-      maxlength: [100, 'State cannot be more than 100 characters']
-    },
-    country: {
-      type: String,
-      maxlength: [100, 'Country cannot be more than 100 characters']
-    }
+    type: String,
+    maxlength: [100, 'Location cannot be more than 100 characters']
   },
   age: {
     type: Number,
@@ -91,11 +81,6 @@ const userSchema = new mongoose.Schema({
   isProfileComplete: {
     type: Boolean,
     default: false
-  },
-  preferredLanguage: {
-    type: String,
-    enum: ['en', 'es', 'de', 'tr'],
-    default: 'en'
   },
   lastActive: {
     type: Date,
@@ -118,135 +103,8 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
   }],
-  notifications: [{
-    type: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    message: {
-      type: String,
-      required: true,
-      trim: true,
-      maxlength: [500, 'Notification message cannot exceed 500 characters']
-    },
-    from: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-      },
-      name: String,
-      username: String,
-      profileImage: String
-    },
-    team: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Team'
-      },
-      name: String,
-      sport: String
-    },
-    event: {
-      _id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Post'
-      },
-      title: String,
-      date: Date
-    },
-    applicationId: {
-      type: mongoose.Schema.Types.ObjectId
-    },
-    read: {
-      type: Boolean,
-      default: false
-    },
-    status: {
-      type: String,
-      enum: ['pending', 'approved', 'rejected', 'info'],
-      default: 'pending'
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  role: {
+  push_token: {
     type: String,
-    enum: ['user', 'business_pending', 'business_owner', 'admin'],
-    default: 'user',
-    index: true
-  },
-  accountType: {
-    type: String,
-    enum: ['individual', 'business'],
-    default: 'individual'
-  },
-  businessName: {
-    type: String,
-    trim: true,
-    maxlength: [100, 'Business name cannot be more than 100 characters']
-  },
-  businessType: {
-    type: String,
-    trim: true,
-    maxlength: [50, 'Business type cannot be more than 50 characters']
-  },
-  contactInfo: {
-    type: String,
-    trim: true,
-    maxlength: [200, 'Contact info cannot be more than 200 characters']
-  },
-  workingHours: {
-    type: String,
-    trim: true,
-    maxlength: [50, 'Working hours cannot be more than 50 characters']
-  },
-  description: {
-    type: String,
-    maxlength: [1000, 'Description cannot be more than 1000 characters']
-  },
-  emailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String,
-    default: null
-  },
-  emailVerificationExpires: {
-    type: Date,
-    default: null
-  },
-  resetPasswordToken: {
-    type: String,
-    default: null
-  },
-  resetPasswordExpires: {
-    type: Date,
-    default: null
-  },
-  loginAttempts: {
-    type: Number,
-    default: 0
-  },
-  isBanned: {
-    type: Boolean,
-    default: false,
-    index: true
-  },
-  bannedAt: {
-    type: Date,
-    default: null
-  },
-  bannedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
-  },
-  lockUntil: {
-    type: Date,
     default: null
   }
 }, {
