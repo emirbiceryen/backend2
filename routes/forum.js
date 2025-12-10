@@ -106,7 +106,7 @@ const submitEventApplication = async ({ post, applicant, autoApprove = false }) 
 // Get all posts with optional filtering
 router.get('/posts', auth, async (req, res) => {
   try {
-    const { category, page = 1, limit = 10 } = req.query;
+    const { category, page = 1, limit = 10, filter } = req.query;
     const skip = (page - 1) * limit;
 
     let query = {};
@@ -114,11 +114,43 @@ router.get('/posts', auth, async (req, res) => {
       query.category = category;
     }
 
+    // Get current user for filtering
+    const currentUser = await User.findById(req.user._id).select('hobbies location');
+    
+    // Apply filter based on hobbies or city
+    if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
+      // Find users with matching hobbies
+      const usersWithMatchingHobbies = await User.find({
+        hobbies: { $in: currentUser.hobbies },
+        _id: { $ne: req.user._id }
+      }).select('_id');
+      
+      const matchingUserIds = usersWithMatchingHobbies.map(u => u._id);
+      query.authorId = { $in: matchingUserIds };
+    } else if (filter === 'city' && currentUser && currentUser.location) {
+      // Find users in the same city
+      const usersInSameCity = await User.find({
+        location: currentUser.location,
+        _id: { $ne: req.user._id }
+      }).select('_id');
+      
+      const cityUserIds = usersInSameCity.map(u => u._id);
+      query.authorId = { $in: cityUserIds };
+    }
+
     const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('authorId', 'name email firstName lastName profileImage accountType businessName businessType');
+      .populate({
+        path: 'authorId',
+        select: 'name email firstName lastName profileImage accountType businessName businessType hobbies location',
+        populate: {
+          path: 'hobbies',
+          select: 'name icon',
+          model: 'Hobby'
+        }
+      });
 
     console.log('Found posts:', posts.length);
     console.log('First post author:', posts[0]?.authorId);
@@ -222,10 +254,22 @@ router.get('/posts', auth, async (req, res) => {
         return comment;
       }));
 
+      // Format author hobbies - get name and icon
+      let authorHobbies = [];
+      if (populatedAuthor && populatedAuthor.hobbies) {
+        authorHobbies = populatedAuthor.hobbies.map(hobby => {
+          if (typeof hobby === 'object' && hobby !== null) {
+            return { name: hobby.name, icon: hobby.icon };
+          }
+          return hobby;
+        });
+      }
+
       return {
         ...po,
         authorName,
         authorAvatar,
+        authorHobbies,
         media,
         comments: formattedComments,
         isBusinessEvent: po.isBusinessEvent || (populatedAuthor && populatedAuthor.accountType === 'business'),
