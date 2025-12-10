@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const admin = require('../middleware/admin');
 const User = require('../models/User');
+const Post = require('../models/Post');
 const BusinessApplication = require('../models/BusinessApplication');
 
 /**
@@ -146,6 +147,7 @@ router.delete('/users/:id', [auth, admin], async (req, res) => {
 router.post('/users/ban/:id', [auth, admin], async (req, res) => {
   try {
     const userId = req.params.id;
+    const { days, reason } = req.body || {};
 
     // Prevent admin from banning themselves
     if (userId === req.user._id.toString()) {
@@ -171,11 +173,12 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
       });
     }
 
-    // Add banned flag to user (you may want to add this field to User model)
-    // For now, we'll use a custom field or update role
-    user.isBanned = true;
-    user.bannedAt = new Date();
-    user.bannedBy = req.user._id;
+    const bannedUntil = days ? new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000) : null;
+    user.status = 'banned';
+    user.bannedUntil = bannedUntil;
+    user.banReason = reason || null;
+    user.timeoutUntil = null;
+    user.timeoutReason = null;
     await user.save();
 
     res.json({
@@ -183,8 +186,9 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
       message: 'User banned successfully',
       user: {
         id: user._id,
-        isBanned: user.isBanned,
-        bannedAt: user.bannedAt
+        status: user.status,
+        bannedUntil: user.bannedUntil,
+        banReason: user.banReason
       }
     });
   } catch (error) {
@@ -212,9 +216,11 @@ router.post('/users/unban/:id', [auth, admin], async (req, res) => {
       });
     }
 
-    user.isBanned = false;
-    user.bannedAt = null;
-    user.bannedBy = null;
+    user.status = 'active';
+    user.bannedUntil = null;
+    user.banReason = null;
+    user.timeoutUntil = null;
+    user.timeoutReason = null;
     await user.save();
 
     res.json({
@@ -228,6 +234,138 @@ router.post('/users/unban/:id', [auth, admin], async (req, res) => {
       message: 'Server error',
       error: error.message
     });
+  }
+});
+
+/**
+ * @route   POST /admin/users/timeout/:id
+ * @desc    Timeout user for X minutes (Admin only)
+ * @access  Private (Admin)
+ */
+router.post('/users/timeout/:id', [auth, admin], async (req, res) => {
+  try {
+    const { minutes = 60, reason } = req.body || {};
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Cannot timeout admin users' });
+    }
+
+    const timeoutUntil = new Date(Date.now() + Number(minutes) * 60 * 1000);
+    user.timeoutUntil = timeoutUntil;
+    user.timeoutReason = reason || null;
+    user.status = 'active';
+    user.bannedUntil = null;
+    user.banReason = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User timed out for ${minutes} minutes`,
+      timeoutUntil
+    });
+  } catch (error) {
+    console.error('Error timing out user:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * @route   POST /admin/users/premium/:id
+ * @desc    Grant premium to user for N days (default 30)
+ * @access  Private (Admin)
+ */
+router.post('/users/premium/:id', [auth, admin], async (req, res) => {
+  try {
+    const { days = 30 } = req.body || {};
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const expiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
+    user.subscriptionType = 'premium';
+    user.premiumExpiresAt = expiresAt;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Premium granted for ${days} days`,
+      premiumExpiresAt: expiresAt
+    });
+  } catch (error) {
+    console.error('Error granting premium:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * @route   GET /admin/posts
+ * @desc    List posts for moderation (Admin only)
+ * @access  Private (Admin)
+ */
+router.get('/posts', [auth, admin], async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const posts = await Post.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('authorId', 'name email username role');
+
+    const total = await Post.countDocuments(query);
+
+    res.json({
+      success: true,
+      posts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('Error listing posts:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+/**
+ * @route   DELETE /admin/posts/:id
+ * @desc    Remove a post (soft delete) (Admin only)
+ * @access  Private (Admin)
+ */
+router.delete('/posts/:id', [auth, admin], async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    post.isRemoved = true;
+    post.removedAt = new Date();
+    post.removedBy = req.user._id;
+    post.removeReason = reason || null;
+    await post.save();
+
+    res.json({ success: true, message: 'Post removed successfully' });
+  } catch (error) {
+    console.error('Error removing post:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 

@@ -109,7 +109,7 @@ router.get('/posts', auth, async (req, res) => {
     const { category, page = 1, limit = 10, filter } = req.query;
     const skip = (page - 1) * limit;
 
-    let query = {};
+    let query = { isRemoved: false };
     if (category && category !== 'all') {
       query.category = category;
     }

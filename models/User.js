@@ -32,6 +32,36 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters']
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin', 'business_owner', 'business_pending'],
+    default: 'user'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'banned'],
+    default: 'active'
+  },
+  bannedUntil: {
+    type: Date,
+    default: null
+  },
+  banReason: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: null
+  },
+  timeoutUntil: {
+    type: Date,
+    default: null
+  },
+  timeoutReason: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: null
+  },
   hobbies: [{
     type: String,
     ref: 'Hobby'

@@ -22,6 +22,24 @@ const auth = async (req, res, next) => {
       });
     }
 
+    // Check ban/timeout status
+    const now = new Date();
+    if (user.status === 'banned' || (user.bannedUntil && user.bannedUntil > now)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is banned.',
+        bannedUntil: user.bannedUntil
+      });
+    }
+
+    if (user.timeoutUntil && user.timeoutUntil > now) {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is temporarily restricted.',
+        timeoutUntil: user.timeoutUntil
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {

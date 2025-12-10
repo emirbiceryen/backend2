@@ -152,6 +152,25 @@ const postSchema = new mongoose.Schema({
     default: false
   },
   eventDetails: eventDetailsSchema,
+  isRemoved: {
+    type: Boolean,
+    default: false
+  },
+  removedAt: {
+    type: Date,
+    default: null
+  },
+  removedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  removeReason: {
+    type: String,
+    trim: true,
+    maxlength: 500,
+    default: null
+  },
   createdByType: {
     type: String,
     enum: ['individual', 'business'],
