@@ -126,7 +126,17 @@ router.get('/posts', auth, async (req, res) => {
       }).select('_id');
       
       const matchingUserIds = usersWithMatchingHobbies.map(u => u._id);
-      query.authorId = { $in: matchingUserIds };
+      
+      // Also include business accounts (they can have events for any hobby)
+      const businessAccounts = await User.find({
+        accountType: 'business'
+      }).select('_id');
+      
+      const businessIds = businessAccounts.map(u => u._id);
+      
+      // Combine regular users with matching hobbies and all business accounts
+      const allAuthorIds = [...matchingUserIds, ...businessIds];
+      query.authorId = { $in: allAuthorIds };
     } else if (filter === 'city' && currentUser && currentUser.location) {
       // Find users in the same city
       const usersInSameCity = await User.find({
@@ -254,13 +264,16 @@ router.get('/posts', auth, async (req, res) => {
         return comment;
       }));
 
-      // Format author hobbies - get name and icon
+      // Format author hobbies - get name, icon, and id
       let authorHobbies = [];
+      let authorHobbyIds = [];
       if (populatedAuthor && populatedAuthor.hobbies) {
         authorHobbies = populatedAuthor.hobbies.map(hobby => {
           if (typeof hobby === 'object' && hobby !== null) {
-            return { name: hobby.name, icon: hobby.icon };
+            authorHobbyIds.push(hobby._id ? hobby._id.toString() : hobby._id);
+            return { _id: hobby._id ? hobby._id.toString() : hobby._id, name: hobby.name, icon: hobby.icon };
           }
+          authorHobbyIds.push(hobby.toString());
           return hobby;
         });
       }
@@ -270,6 +283,8 @@ router.get('/posts', auth, async (req, res) => {
         authorName,
         authorAvatar,
         authorHobbies,
+        authorHobbyIds,
+        authorAccountType: populatedAuthor ? populatedAuthor.accountType : undefined,
         media,
         comments: formattedComments,
         isBusinessEvent: po.isBusinessEvent || (populatedAuthor && populatedAuthor.accountType === 'business'),
