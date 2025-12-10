@@ -179,6 +179,13 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
     user.banReason = reason || null;
     user.timeoutUntil = null;
     user.timeoutReason = null;
+    
+    // Fix location if it's an object (convert to string)
+    if (user.location && typeof user.location === 'object') {
+      const loc = user.location;
+      user.location = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+    }
+    
     await user.save();
 
     res.json({
@@ -259,6 +266,13 @@ router.post('/users/timeout/:id', [auth, admin], async (req, res) => {
     user.status = 'active';
     user.bannedUntil = null;
     user.banReason = null;
+    
+    // Fix location if it's an object (convert to string)
+    if (user.location && typeof user.location === 'object') {
+      const loc = user.location;
+      user.location = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+    }
+    
     await user.save();
 
     res.json({
@@ -288,6 +302,13 @@ router.post('/users/premium/:id', [auth, admin], async (req, res) => {
     const expiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
     user.subscriptionType = 'premium';
     user.premiumExpiresAt = expiresAt;
+    
+    // Fix location if it's an object (convert to string)
+    if (user.location && typeof user.location === 'object') {
+      const loc = user.location;
+      user.location = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+    }
+    
     await user.save();
 
     res.json({
