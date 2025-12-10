@@ -254,7 +254,7 @@ router.post('/users/unban/:id', [auth, admin], async (req, res) => {
 router.post('/users/timeout/:id', [auth, admin], async (req, res) => {
   try {
     const { minutes = 60, reason } = req.body || {};
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).lean();
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -263,21 +263,22 @@ router.post('/users/timeout/:id', [auth, admin], async (req, res) => {
     }
 
     const timeoutUntil = new Date(Date.now() + Number(minutes) * 60 * 1000);
-    user.timeoutUntil = timeoutUntil;
-    user.timeoutReason = reason || null;
-    user.status = 'active';
-    user.bannedUntil = null;
-    user.banReason = null;
     
     // Fix location if it's an object (convert to string)
+    let locationString = user.location;
     if (user.location && typeof user.location === 'object') {
       const loc = user.location;
-      const locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
-      user.set('location', locationString);
-      user.markModified('location');
+      locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
     }
     
-    await user.save();
+    await User.findByIdAndUpdate(req.params.id, {
+      timeoutUntil,
+      timeoutReason: reason || null,
+      status: 'active',
+      bannedUntil: null,
+      banReason: null,
+      location: locationString
+    }, { runValidators: false });
 
     res.json({
       success: true,
@@ -298,24 +299,25 @@ router.post('/users/timeout/:id', [auth, admin], async (req, res) => {
 router.post('/users/premium/:id', [auth, admin], async (req, res) => {
   try {
     const { days = 30 } = req.body || {};
-    const user = await User.findById(req.params.id);
+    const user = await User.findById(req.params.id).lean();
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
     const expiresAt = new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000);
-    user.subscriptionType = 'premium';
-    user.premiumExpiresAt = expiresAt;
     
     // Fix location if it's an object (convert to string)
+    let locationString = user.location;
     if (user.location && typeof user.location === 'object') {
       const loc = user.location;
-      const locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
-      user.set('location', locationString);
-      user.markModified('location');
+      locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
     }
     
-    await user.save();
+    await User.findByIdAndUpdate(req.params.id, {
+      subscriptionType: 'premium',
+      premiumExpiresAt: expiresAt,
+      location: locationString
+    }, { runValidators: false });
 
     res.json({
       success: true,
