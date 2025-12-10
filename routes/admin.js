@@ -183,7 +183,9 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
     // Fix location if it's an object (convert to string)
     if (user.location && typeof user.location === 'object') {
       const loc = user.location;
-      user.location = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+      const locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+      user.set('location', locationString);
+      user.markModified('location');
     }
     
     await user.save();
@@ -306,7 +308,9 @@ router.post('/users/premium/:id', [auth, admin], async (req, res) => {
     // Fix location if it's an object (convert to string)
     if (user.location && typeof user.location === 'object') {
       const loc = user.location;
-      user.location = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+      const locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
+      user.set('location', locationString);
+      user.markModified('location');
     }
     
     await user.save();
