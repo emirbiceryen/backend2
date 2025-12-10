@@ -157,7 +157,7 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).lean();
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -174,21 +174,22 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
     }
 
     const bannedUntil = days ? new Date(Date.now() + Number(days) * 24 * 60 * 60 * 1000) : null;
-    user.status = 'banned';
-    user.bannedUntil = bannedUntil;
-    user.banReason = reason || null;
-    user.timeoutUntil = null;
-    user.timeoutReason = null;
     
     // Fix location if it's an object (convert to string)
+    let locationString = user.location;
     if (user.location && typeof user.location === 'object') {
       const loc = user.location;
-      const locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
-      user.set('location', locationString);
-      user.markModified('location');
+      locationString = loc.city ? `${loc.city}${loc.state ? ', ' + loc.state : ''}${loc.country ? ', ' + loc.country : ''}`.trim() : JSON.stringify(loc);
     }
     
-    await user.save();
+    await User.findByIdAndUpdate(userId, {
+      status: 'banned',
+      bannedUntil,
+      banReason: reason || null,
+      timeoutUntil: null,
+      timeoutReason: null,
+      location: locationString
+    }, { runValidators: false });
 
     res.json({
       success: true,
