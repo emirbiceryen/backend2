@@ -169,16 +169,22 @@ router.get('/posts', auth, async (req, res) => {
     // Filter business events by hobbyType if hobbies filter is active
     let filteredPosts = posts;
     if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
+      // Collect user hobby ids and names for matching
       const userHobbyIds = currentUser.hobbies.map(h => h.toString());
+      const userHobbyDocs = await require('../models/Hobby').find({ _id: { $in: userHobbyIds } }).select('_id name');
+      const userHobbyNames = userHobbyDocs.map(h => h.name?.toLowerCase()).filter(Boolean);
+
       filteredPosts = posts.filter(post => {
         const po = post.toObject();
         const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
         
-        // If it's a business event, check if hobbyType matches user's hobbies
+        // If it's a business event, check if hobbyType matches user's hobbies (by id or name)
         if (populatedAuthor && populatedAuthor.accountType === 'business' && po.isEvent && po.eventDetails && po.eventDetails.hobbyType) {
-          // Check if eventDetails.hobbyType matches any of user's hobbies
           const eventHobbyType = po.eventDetails.hobbyType.toString();
-          return userHobbyIds.includes(eventHobbyType);
+          const eventHobbyLower = eventHobbyType.toLowerCase();
+          const matchesById = userHobbyIds.includes(eventHobbyType);
+          const matchesByName = userHobbyNames.includes(eventHobbyLower);
+          return matchesById || matchesByName;
         }
         
         // For non-business posts or business posts without hobbyType, include them
