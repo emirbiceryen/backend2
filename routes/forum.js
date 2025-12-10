@@ -116,16 +116,19 @@ router.get('/posts', auth, async (req, res) => {
 
     // Get current user for filtering
     const currentUser = await User.findById(req.user._id).select('hobbies location');
+    console.log('[Forum] Filter:', filter);
+    console.log('[Forum] Current user hobbies:', currentUser?.hobbies);
+    console.log('[Forum] Current user location:', currentUser?.location);
     
     // Apply filter based on hobbies or city
     if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
-      // Find users with matching hobbies
+      // Find users with matching hobbies (including current user's own posts)
       const usersWithMatchingHobbies = await User.find({
-        hobbies: { $in: currentUser.hobbies },
-        _id: { $ne: req.user._id }
+        hobbies: { $in: currentUser.hobbies }
       }).select('_id');
       
       const matchingUserIds = usersWithMatchingHobbies.map(u => u._id);
+      console.log('[Forum] Users with matching hobbies:', matchingUserIds.length);
       
       // For business events, we'll filter after fetching based on eventDetails.hobbyType
       // So we include all business accounts in the query, but filter later
@@ -134,9 +137,11 @@ router.get('/posts', auth, async (req, res) => {
       }).select('_id');
       
       const businessIds = businessAccounts.map(u => u._id);
+      console.log('[Forum] Business accounts:', businessIds.length);
       
       // Combine regular users with matching hobbies and all business accounts
       const allAuthorIds = [...matchingUserIds, ...businessIds];
+      console.log('[Forum] Total author IDs for hobbies filter:', allAuthorIds.length);
       query.authorId = { $in: allAuthorIds };
     } else if (filter === 'city' && currentUser && currentUser.location) {
       // Find users in the same city
@@ -150,18 +155,21 @@ router.get('/posts', auth, async (req, res) => {
         locationMatch = currentUser.location.split(',')[0].trim();
       }
       
-      // Find users with matching city (location can be string or object)
+      // Find users with matching city (location can be string or object) - including current user
       const usersInSameCity = await User.find({
         $or: [
           { location: locationMatch },
           { 'location.city': locationMatch },
           { location: { $regex: `^${locationMatch}`, $options: 'i' } }
-        ],
-        _id: { $ne: req.user._id }
+        ]
       }).select('_id');
       
       const cityUserIds = usersInSameCity.map(u => u._id);
+      console.log('[Forum] Users in same city:', cityUserIds.length, 'Location match:', locationMatch);
       query.authorId = { $in: cityUserIds };
+    } else if (!filter) {
+      // No filter - show all posts (except removed ones)
+      console.log('[Forum] No filter - showing all posts');
     }
 
     const posts = await Post.find(query)
@@ -178,8 +186,11 @@ router.get('/posts', auth, async (req, res) => {
         }
       });
 
-    console.log('Found posts:', posts.length);
-    console.log('First post author:', posts[0]?.authorId);
+    console.log('[Forum] Found posts before filtering:', posts.length);
+    console.log('[Forum] Query used:', JSON.stringify(query));
+    if (posts.length > 0) {
+      console.log('[Forum] First post author:', posts[0]?.authorId);
+    }
 
     // Filter business events by hobbyType if hobbies filter is active
     let filteredPosts = posts;
@@ -208,7 +219,9 @@ router.get('/posts', auth, async (req, res) => {
       });
     }
 
-    const total = await Post.countDocuments(query);
+    // Use filteredPosts for total count if filter was applied
+    const total = filter === 'hobbies' ? filteredPosts.length : await Post.countDocuments(query);
+    console.log('[Forum] Total posts after filtering:', filteredPosts.length);
 
     const host = process.env.NODE_ENV === 'production' 
       ? 'https://backend-production-7063.up.railway.app'
@@ -358,7 +371,7 @@ router.get('/posts', auth, async (req, res) => {
       pagination: {
         current: parseInt(page),
         total: Math.ceil(total / limit),
-        hasMore: skip + posts.length < total
+        hasMore: filter === 'hobbies' ? false : (skip + formattedPosts.length < total)
       }
     });
   } catch (error) {
