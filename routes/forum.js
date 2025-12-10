@@ -109,7 +109,13 @@ router.get('/posts', auth, async (req, res) => {
     const { category, page = 1, limit = 10, filter } = req.query;
     const skip = (page - 1) * limit;
 
-    let query = { isRemoved: false };
+    let query = {};
+    // Only filter removed posts if they exist, otherwise show all
+    query.$or = [
+      { isRemoved: { $exists: false } },
+      { isRemoved: false },
+      { isRemoved: null }
+    ];
     if (category && category !== 'all') {
       query.category = category;
     }
@@ -188,8 +194,23 @@ router.get('/posts', auth, async (req, res) => {
 
     console.log('[Forum] Found posts before filtering:', posts.length);
     console.log('[Forum] Query used:', JSON.stringify(query));
+    
+    // Debug: Check total posts without filter
+    const totalPostsWithoutFilter = await Post.countDocuments({});
+    const removedPosts = await Post.countDocuments({ isRemoved: true });
+    console.log('[Forum] Total posts in DB:', totalPostsWithoutFilter);
+    console.log('[Forum] Removed posts:', removedPosts);
+    console.log('[Forum] Active posts (not removed):', totalPostsWithoutFilter - removedPosts);
+    
     if (posts.length > 0) {
       console.log('[Forum] First post author:', posts[0]?.authorId);
+    } else {
+      // Debug: Check if posts exist for these authors without isRemoved filter
+      const postsWithoutRemovedFilter = await Post.find({ authorId: query.authorId }).limit(5);
+      console.log('[Forum] Posts found without isRemoved filter:', postsWithoutRemovedFilter.length);
+      if (postsWithoutRemovedFilter.length > 0) {
+        console.log('[Forum] Sample post isRemoved value:', postsWithoutRemovedFilter[0].isRemoved);
+      }
     }
 
     // Filter business events by hobbyType if hobbies filter is active
