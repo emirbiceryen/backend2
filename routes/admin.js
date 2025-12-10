@@ -191,14 +191,15 @@ router.post('/users/ban/:id', [auth, admin], async (req, res) => {
       location: locationString
     }, { runValidators: false });
 
+    const updatedUser = await User.findById(userId).select('status bannedUntil banReason');
     res.json({
       success: true,
       message: 'User banned successfully',
       user: {
-        id: user._id,
-        status: user.status,
-        bannedUntil: user.bannedUntil,
-        banReason: user.banReason
+        id: updatedUser._id,
+        status: updatedUser.status,
+        bannedUntil: updatedUser.bannedUntil,
+        banReason: updatedUser.banReason
       }
     });
   } catch (error) {
