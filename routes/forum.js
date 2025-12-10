@@ -140,8 +140,23 @@ router.get('/posts', auth, async (req, res) => {
       query.authorId = { $in: allAuthorIds };
     } else if (filter === 'city' && currentUser && currentUser.location) {
       // Find users in the same city
+      // Handle location as string or object
+      let locationMatch = currentUser.location;
+      if (typeof currentUser.location === 'object' && currentUser.location.city) {
+        // If location is object, extract city for matching
+        locationMatch = currentUser.location.city;
+      } else if (typeof currentUser.location === 'string') {
+        // If location is string like "City, State, Country", extract just the city part
+        locationMatch = currentUser.location.split(',')[0].trim();
+      }
+      
+      // Find users with matching city (location can be string or object)
       const usersInSameCity = await User.find({
-        location: currentUser.location,
+        $or: [
+          { location: locationMatch },
+          { 'location.city': locationMatch },
+          { location: { $regex: `^${locationMatch}`, $options: 'i' } }
+        ],
         _id: { $ne: req.user._id }
       }).select('_id');
       

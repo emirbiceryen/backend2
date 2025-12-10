@@ -235,14 +235,19 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           }
         }
         
-        // If locationObj is valid object with at least one property
+        // If locationObj is valid object with at least one property, convert to string
         if (locationObj && typeof locationObj === 'object' && (locationObj.city || locationObj.state || locationObj.country)) {
-          updateData.location = {
-            city: locationObj.city || '',
-            state: locationObj.state || '',
-            country: locationObj.country || ''
-          };
+          // Convert location object to string format
+          const locationParts = [];
+          if (locationObj.city) locationParts.push(locationObj.city);
+          if (locationObj.state) locationParts.push(locationObj.state);
+          if (locationObj.country) locationParts.push(locationObj.country);
+          updateData.location = locationParts.join(', ');
           console.log('Location set to:', updateData.location);
+        } else if (typeof location === 'string' && location.trim()) {
+          // If location is already a string, use it directly
+          updateData.location = location.trim();
+          console.log('Location set to string:', updateData.location);
         } else {
           console.log('Location object is invalid or empty, skipping');
         }
