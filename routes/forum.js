@@ -127,7 +127,8 @@ router.get('/posts', auth, async (req, res) => {
       
       const matchingUserIds = usersWithMatchingHobbies.map(u => u._id);
       
-      // Also include business accounts (they can have events for any hobby)
+      // For business events, we'll filter after fetching based on eventDetails.hobbyType
+      // So we include all business accounts in the query, but filter later
       const businessAccounts = await User.find({
         accountType: 'business'
       }).select('_id');
@@ -165,12 +166,33 @@ router.get('/posts', auth, async (req, res) => {
     console.log('Found posts:', posts.length);
     console.log('First post author:', posts[0]?.authorId);
 
+    // Filter business events by hobbyType if hobbies filter is active
+    let filteredPosts = posts;
+    if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
+      const userHobbyIds = currentUser.hobbies.map(h => h.toString());
+      filteredPosts = posts.filter(post => {
+        const po = post.toObject();
+        const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
+        
+        // If it's a business event, check if hobbyType matches user's hobbies
+        if (populatedAuthor && populatedAuthor.accountType === 'business' && po.isEvent && po.eventDetails && po.eventDetails.hobbyType) {
+          // Check if eventDetails.hobbyType matches any of user's hobbies
+          const eventHobbyType = po.eventDetails.hobbyType.toString();
+          return userHobbyIds.includes(eventHobbyType);
+        }
+        
+        // For non-business posts or business posts without hobbyType, include them
+        // (they were already filtered by authorId in the query)
+        return true;
+      });
+    }
+
     const total = await Post.countDocuments(query);
 
     const host = process.env.NODE_ENV === 'production' 
       ? 'https://backend-production-7063.up.railway.app'
       : `${req.protocol}://${req.get('host')}`;
-    const formattedPosts = await Promise.all(posts.map(async (p) => {
+    const formattedPosts = await Promise.all(filteredPosts.map(async (p) => {
       const po = p.toObject();
       const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
 
