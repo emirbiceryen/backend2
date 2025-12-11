@@ -313,11 +313,14 @@ router.get('/posts', auth, async (req, res) => {
         const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
         
         // If post is from a user/business in the same city, include it
-        if (cityUserIds && cityUserIds.some(id => {
-          const postAuthorId = typeof po.authorId === 'object' ? po.authorId._id : po.authorId;
-          return id.toString() === postAuthorId.toString();
-        })) {
-          return true;
+        if (cityUserIds && po.authorId) {
+          const postAuthorId = typeof po.authorId === 'object' && po.authorId._id 
+            ? po.authorId._id 
+            : (typeof po.authorId === 'object' ? po.authorId : po.authorId);
+          
+          if (postAuthorId && cityUserIds.some(id => id.toString() === postAuthorId.toString())) {
+            return true;
+          }
         }
         
         // If post is a business event, check event location
