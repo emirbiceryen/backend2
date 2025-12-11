@@ -167,9 +167,10 @@ router.get('/posts', auth, async (req, res) => {
       
       console.log('[Forum] City filter - cityName:', cityName, 'locationMatch:', locationMatch);
       
-      // Find users with matching city (location can be string or object) - including current user
+      // Find regular users with matching city (location can be string or object) - including current user
       // Try multiple matching strategies
       const usersInSameCity = await User.find({
+        accountType: { $ne: 'business' }, // Exclude business accounts for now
         $or: [
           { location: cityName },
           { 'location.city': cityName },
@@ -181,33 +182,41 @@ router.get('/posts', auth, async (req, res) => {
         ]
       }).select('_id location');
       
-      console.log('[Forum] Users found with city filter:', usersInSameCity.length);
-      usersInSameCity.forEach(u => {
-        console.log('[Forum] User ID:', u._id.toString(), 'Location:', u.location);
+      console.log('[Forum] Regular users found with city filter:', usersInSameCity.length);
+      
+      // Find business accounts with matching location
+      const businessInSameCity = await User.find({
+        accountType: 'business',
+        $or: [
+          { location: cityName },
+          { 'location.city': cityName },
+          { location: { $regex: `^${cityName}`, $options: 'i' } },
+          { location: { $regex: cityName, $options: 'i' } },
+          { location: locationMatch },
+          { location: { $regex: locationMatch, $options: 'i' } }
+        ]
+      }).select('_id location');
+      
+      console.log('[Forum] Business accounts found with city filter:', businessInSameCity.length);
+      
+      // Combine regular users and business accounts
+      const allUsersInSameCity = [...usersInSameCity, ...businessInSameCity];
+      
+      allUsersInSameCity.forEach(u => {
+        console.log('[Forum] User ID:', u._id.toString(), 'Location:', u.location, 'Account Type:', u.accountType || 'regular');
       });
       
-      const cityUserIds = usersInSameCity.map(u => u._id);
-      console.log('[Forum] Users in same city:', cityUserIds.length, 'City name:', cityName);
+      const cityUserIds = allUsersInSameCity.map(u => u._id);
+      console.log('[Forum] Total users in same city:', cityUserIds.length, 'City name:', cityName);
       console.log('[Forum] City user IDs:', cityUserIds.map(id => id.toString()));
       
-      // Check if posts exist for these users (for debugging)
-      if (cityUserIds.length > 0) {
-        const testPosts = await Post.find({ 
-          authorId: { $in: cityUserIds },
-          $or: [
-            { isRemoved: { $exists: false } },
-            { isRemoved: false },
-            { isRemoved: null }
-          ]
-        }).limit(3);
-        console.log('[Forum] Test posts found for city users:', testPosts.length);
-        if (testPosts.length > 0) {
-          console.log('[Forum] Sample post authorId:', testPosts[0].authorId.toString());
-          console.log('[Forum] Sample post isRemoved:', testPosts[0].isRemoved);
-        }
-      }
-      
+      // Also find business events with matching location (even if business account location doesn't match)
+      // We'll filter posts by event location later
       query.authorId = { $in: cityUserIds };
+      
+      // Store city name for post-level filtering of business events
+      req.cityFilterName = cityName;
+      req.cityFilterLocation = locationMatch;
     } else if (!filter) {
       // No filter - show all posts (except removed ones)
       console.log('[Forum] No filter - showing all posts');
