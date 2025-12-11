@@ -206,26 +206,39 @@ router.get('/posts', auth, async (req, res) => {
         console.log('[Forum] User ID:', u._id.toString(), 'Location:', u.location, 'Account Type:', u.accountType || 'regular');
       });
       
-      const cityUserIds = allUsersInSameCity.map(u => u._id);
+      cityUserIds = allUsersInSameCity.map(u => u._id);
       console.log('[Forum] Total users in same city:', cityUserIds.length, 'City name:', cityName);
       console.log('[Forum] City user IDs:', cityUserIds.map(id => id.toString()));
       
-      // Also find business events with matching location (even if business account location doesn't match)
-      // We'll filter posts by event location later
-      query.authorId = { $in: cityUserIds };
+      // Store city filter info for post-level filtering of business events
+      cityFilterName = cityName;
+      cityFilterLocation = locationMatch;
       
-      // Store city name for post-level filtering of business events
-      req.cityFilterName = cityName;
-      req.cityFilterLocation = locationMatch;
+      // For city filter, we need to get all posts first (including business events)
+      // Then filter by location at post level
+      // So we don't restrict by authorId here - we'll filter later
+      // But we can still optimize by including known users
+      if (cityUserIds.length > 0) {
+        // Include posts from users in same city, but also get all business posts for location checking
+        query.$or = [
+          ...query.$or || [],
+          { authorId: { $in: cityUserIds } },
+          { accountType: 'business', isEvent: true } // Get all business events for location checking
+        ];
+      }
     } else if (!filter) {
       // No filter - show all posts (except removed ones)
       console.log('[Forum] No filter - showing all posts');
     }
 
+    // For city filter, we need to get more posts to check business event locations
+    // For other filters, use normal limit
+    const postLimit = filter === 'city' ? parseInt(limit) * 3 : parseInt(limit);
+    
     const posts = await Post.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit))
+      .limit(postLimit)
       .populate({
         path: 'authorId',
         select: 'name email firstName lastName profileImage accountType businessName businessType hobbies location',
@@ -235,6 +248,36 @@ router.get('/posts', auth, async (req, res) => {
           model: 'Hobby'
         }
       });
+    
+    // For city filter, also get all business events to check their locations
+    if (filter === 'city' && cityFilterName) {
+      const businessEvents = await Post.find({
+        $or: [
+          { isRemoved: { $exists: false } },
+          { isRemoved: false },
+          { isRemoved: null }
+        ],
+        isEvent: true,
+        'authorId.accountType': 'business'
+      })
+      .sort({ createdAt: -1 })
+      .limit(50) // Get more business events to check
+      .populate({
+        path: 'authorId',
+        select: 'name email firstName lastName profileImage accountType businessName businessType hobbies location',
+        populate: {
+          path: 'hobbies',
+          select: 'name icon',
+          model: 'Hobby'
+        }
+      });
+      
+      // Combine with existing posts, removing duplicates
+      const existingPostIds = new Set(posts.map(p => p._id.toString()));
+      const newBusinessEvents = businessEvents.filter(p => !existingPostIds.has(p._id.toString()));
+      posts.push(...newBusinessEvents);
+      console.log('[Forum] City filter - Added business events for location checking:', newBusinessEvents.length);
+    }
 
     console.log('[Forum] Found posts before filtering:', posts.length);
     console.log('[Forum] Query used:', JSON.stringify(query));
@@ -257,9 +300,56 @@ router.get('/posts', auth, async (req, res) => {
       }
     }
 
-    // Filter business events by hobbyType if hobbies filter is active
+    // Filter posts for hobbies and city tabs
     let filteredPosts = posts;
-    if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
+    
+    // City filter: Also include business events with matching location
+    if (filter === 'city' && cityFilterName) {
+      const cityName = cityFilterName;
+      const locationMatch = cityFilterLocation;
+      
+      filteredPosts = posts.filter(post => {
+        const po = post.toObject();
+        const populatedAuthor = po.authorId && typeof po.authorId === 'object' ? po.authorId : null;
+        
+        // If post is from a user/business in the same city, include it
+        if (cityUserIds && cityUserIds.some(id => {
+          const postAuthorId = typeof po.authorId === 'object' ? po.authorId._id : po.authorId;
+          return id.toString() === postAuthorId.toString();
+        })) {
+          return true;
+        }
+        
+        // If post is a business event, check event location
+        if (po.isEvent && po.eventDetails && po.eventDetails.location) {
+          const eventLocation = po.eventDetails.location;
+          let eventCity = null;
+          
+          if (typeof eventLocation === 'string') {
+            eventCity = eventLocation.split(',')[0].trim();
+          } else if (eventLocation.city) {
+            eventCity = eventLocation.city;
+          }
+          
+          // Match city name (case-insensitive)
+          if (eventCity && cityName && eventCity.toLowerCase() === cityName.toLowerCase()) {
+            console.log('[Forum] City filter - Business event matched by city:', eventCity);
+            return true;
+          }
+          
+          // Match full location string (case-insensitive)
+          if (typeof eventLocation === 'string' && locationMatch &&
+              eventLocation.toLowerCase().includes(locationMatch.toLowerCase())) {
+            console.log('[Forum] City filter - Business event matched by location:', eventLocation);
+            return true;
+          }
+        }
+        
+        return false;
+      });
+      
+      console.log('[Forum] City filter - posts after location matching:', filteredPosts.length);
+    } else if (filter === 'hobbies' && currentUser && currentUser.hobbies && currentUser.hobbies.length > 0) {
       // Collect user hobby ids and names for matching
       const userHobbyIds = currentUser.hobbies.map(h => h.toString());
       const userHobbyDocs = await require('../models/Hobby').find({ _id: { $in: userHobbyIds } }).select('_id name');
