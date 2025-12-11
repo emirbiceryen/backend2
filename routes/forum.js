@@ -241,7 +241,15 @@ router.get('/posts', auth, async (req, res) => {
     }
 
     // Use filteredPosts for total count if filter was applied
-    const total = filter === 'hobbies' ? filteredPosts.length : await Post.countDocuments(query);
+    let total;
+    if (filter === 'hobbies') {
+      total = filteredPosts.length;
+    } else if (filter === 'city') {
+      // For city filter, count the filtered posts
+      total = filteredPosts.length;
+    } else {
+      total = await Post.countDocuments(query);
+    }
     console.log('[Forum] Total posts after filtering:', filteredPosts.length);
 
     const host = process.env.NODE_ENV === 'production' 
