@@ -153,25 +153,60 @@ router.get('/posts', auth, async (req, res) => {
       // Find users in the same city
       // Handle location as string or object
       let locationMatch = currentUser.location;
+      let cityName = null;
+      
       if (typeof currentUser.location === 'object' && currentUser.location.city) {
         // If location is object, extract city for matching
-        locationMatch = currentUser.location.city;
+        cityName = currentUser.location.city;
+        locationMatch = currentUser.location;
       } else if (typeof currentUser.location === 'string') {
         // If location is string like "City, State, Country", extract just the city part
-        locationMatch = currentUser.location.split(',')[0].trim();
+        cityName = currentUser.location.split(',')[0].trim();
+        locationMatch = currentUser.location;
       }
       
+      console.log('[Forum] City filter - cityName:', cityName, 'locationMatch:', locationMatch);
+      
       // Find users with matching city (location can be string or object) - including current user
+      // Try multiple matching strategies
       const usersInSameCity = await User.find({
         $or: [
+          { location: cityName },
+          { 'location.city': cityName },
+          { location: { $regex: `^${cityName}`, $options: 'i' } },
+          { location: { $regex: cityName, $options: 'i' } },
+          // Also try matching the full location string
           { location: locationMatch },
-          { 'location.city': locationMatch },
-          { location: { $regex: `^${locationMatch}`, $options: 'i' } }
+          { location: { $regex: locationMatch, $options: 'i' } }
         ]
-      }).select('_id');
+      }).select('_id location');
+      
+      console.log('[Forum] Users found with city filter:', usersInSameCity.length);
+      usersInSameCity.forEach(u => {
+        console.log('[Forum] User ID:', u._id.toString(), 'Location:', u.location);
+      });
       
       const cityUserIds = usersInSameCity.map(u => u._id);
-      console.log('[Forum] Users in same city:', cityUserIds.length, 'Location match:', locationMatch);
+      console.log('[Forum] Users in same city:', cityUserIds.length, 'City name:', cityName);
+      console.log('[Forum] City user IDs:', cityUserIds.map(id => id.toString()));
+      
+      // Check if posts exist for these users (for debugging)
+      if (cityUserIds.length > 0) {
+        const testPosts = await Post.find({ 
+          authorId: { $in: cityUserIds },
+          $or: [
+            { isRemoved: { $exists: false } },
+            { isRemoved: false },
+            { isRemoved: null }
+          ]
+        }).limit(3);
+        console.log('[Forum] Test posts found for city users:', testPosts.length);
+        if (testPosts.length > 0) {
+          console.log('[Forum] Sample post authorId:', testPosts[0].authorId.toString());
+          console.log('[Forum] Sample post isRemoved:', testPosts[0].isRemoved);
+        }
+      }
+      
       query.authorId = { $in: cityUserIds };
     } else if (!filter) {
       // No filter - show all posts (except removed ones)
