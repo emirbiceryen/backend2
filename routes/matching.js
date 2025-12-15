@@ -438,11 +438,15 @@ router.get('/matches', auth, async (req, res) => {
 
     // Format matches
     const formattedMatches = matches.map(match => {
+      if (!match.user1 || !match.user2 || !match.user1._id || !match.user2._id) {
+        return null;
+      }
+
       const otherUser = match.user1._id.toString() === currentUser._id.toString() 
         ? match.user2 
         : match.user1;
       
-      if (!otherUser) {
+      if (!otherUser || !otherUser._id) {
         return null;
       }
       
