@@ -694,8 +694,21 @@ router.get('/me', auth, async (req, res) => {
       ? req.user.profileImage
       : null;
 
+    const userDataObj = req.user.toObject();
+    const normalizeHobbySkillLevels = (hsl) => {
+      if (!hsl) return {};
+      if (typeof hsl.get === 'function') {
+        try {
+          return Object.fromEntries(hsl);
+        } catch (e) {
+          return {};
+        }
+      }
+      return hsl;
+    };
     const userData = {
-      ...req.user.toObject(),
+      ...userDataObj,
+      hobbySkillLevels: normalizeHobbySkillLevels(userDataObj.hobbySkillLevels),
       profileImage: formattedProfileImage
     };
 
