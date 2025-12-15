@@ -48,7 +48,17 @@ router.put('/hobbies', auth, [
       });
     }
 
-    const { hobbies, hobbySkillLevels } = req.body;
+    const { hobbies } = req.body;
+    let { hobbySkillLevels } = req.body;
+
+    // Parse hobbySkillLevels if sent as JSON string
+    if (typeof hobbySkillLevels === 'string') {
+      try {
+        hobbySkillLevels = JSON.parse(hobbySkillLevels);
+      } catch (e) {
+        hobbySkillLevels = null;
+      }
+    }
     const currentUser = req.user;
 
     // Check if user has active premium subscription
