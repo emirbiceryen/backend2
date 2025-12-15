@@ -106,6 +106,7 @@ const businessApplicationRoutes = require('./routes/businessApplication');
 const adminRoutes = require('./routes/admin');
 const healthRoutes = require('./routes/health');
 const saveTokenRoute = require('./routes/saveToken');
+const moderationRoutes = require('./routes/moderation');
 
 // WebSocket connection management
 const connectedUsers = new Map();
@@ -238,6 +239,7 @@ app.use('/api/business', businessApplicationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/saveToken', saveTokenRoute);
+app.use('/api/moderation', moderationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

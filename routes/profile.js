@@ -154,11 +154,13 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       const isPremiumActive = req.user.subscriptionType === 'premium' && 
         (!req.user.premiumExpiresAt || new Date(req.user.premiumExpiresAt) > new Date());
       const isFreeUser = !isPremiumActive;
-      
-      if (isFreeUser && hobbiesArray.length > 1) {
+
+      // Free users can select up to 3 hobbies; more requires premium
+      const FREE_HOBBY_LIMIT = 3;
+      if (isFreeUser && hobbiesArray.length > FREE_HOBBY_LIMIT) {
         return res.status(400).json({
           success: false,
-          message: 'Free users can only select 1 hobby. Upgrade to Premium to select multiple hobbies.',
+          message: `Free users can only select ${FREE_HOBBY_LIMIT} hobbies. Upgrade to Premium to select more.`,
           requiresPremium: true
         });
       }

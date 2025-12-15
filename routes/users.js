@@ -56,10 +56,12 @@ router.put('/hobbies', auth, [
       (!currentUser.premiumExpiresAt || new Date(currentUser.premiumExpiresAt) > new Date());
     const isFreeUser = !isPremiumActive;
     
-    if (isFreeUser && hobbies.length > 1) {
+    // Free users can select up to 3 hobbies; more requires premium
+    const FREE_HOBBY_LIMIT = 3;
+    if (isFreeUser && hobbies.length > FREE_HOBBY_LIMIT) {
       return res.status(400).json({
         success: false,
-        message: 'Free users can only select 1 hobby. Upgrade to Premium to select multiple hobbies.',
+        message: `Free users can only select ${FREE_HOBBY_LIMIT} hobbies. Upgrade to Premium to select more.`,
         requiresPremium: true
       });
     }
