@@ -117,9 +117,18 @@ router.get('/potential', auth, async (req, res) => {
         : null;
 
       // Shared hobby skill level (take first shared hobby and other user's skill level if available)
-      const sharedHobbySkillLevel = (match.hobbySkillLevels && match.sharedHobbies && match.sharedHobbies.length > 0)
-        ? (match.hobbySkillLevels as any)[match.sharedHobbies[0]] || null
+      let sharedHobbySkillLevel = null;
+      const firstShared = Array.isArray(match.sharedHobbies) && match.sharedHobbies.length > 0
+        ? match.sharedHobbies[0]
         : null;
+      if (firstShared && match.hobbySkillLevels) {
+        // Support both Map and plain object
+        if (typeof match.hobbySkillLevels.get === 'function') {
+          sharedHobbySkillLevel = match.hobbySkillLevels.get(firstShared) || null;
+        } else {
+          sharedHobbySkillLevel = match.hobbySkillLevels[firstShared] || null;
+        }
+      }
 
       return {
         ...match,
