@@ -79,10 +79,16 @@ router.put('/hobbies', auth, [
       { new: true, runValidators: true }
     ).select('-password');
 
+    const userObj = user.toObject();
     res.json({
       success: true,
       message: 'Hobbies updated successfully',
-      user
+      user: {
+        ...userObj,
+        hobbySkillLevels: userObj.hobbySkillLevels instanceof Map
+          ? Object.fromEntries(userObj.hobbySkillLevels)
+          : (userObj.hobbySkillLevels || {})
+      }
     });
   } catch (error) {
     console.error('Update hobbies error:', error);

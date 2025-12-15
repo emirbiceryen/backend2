@@ -375,7 +375,9 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           age: user.age,
           averageRating: user.averageRating,
           totalRatings: user.totalRatings,
-          hobbySkillLevels: user.hobbySkillLevels || {},
+          hobbySkillLevels: user.hobbySkillLevels instanceof Map 
+            ? Object.fromEntries(user.hobbySkillLevels) 
+            : (user.hobbySkillLevels || {}),
           isProfileComplete: user.isProfileComplete,
           preferredLanguage: user.preferredLanguage || 'en'
         }
@@ -421,25 +423,28 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     console.log('Final profileImage in response:', formattedProfileImage);
     console.log('User profileImage in DB:', user.profileImage);
 
+    const userObj = user.toObject();
     res.json({
       success: true,
       message: 'Profile updated successfully',
       user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        bio: user.bio,
-        skills: user.skills,
-        hobbies: user.hobbies,
+        _id: userObj._id,
+        firstName: userObj.firstName,
+        lastName: userObj.lastName,
+        email: userObj.email,
+        bio: userObj.bio,
+        skills: userObj.skills,
+        hobbies: userObj.hobbies,
         profileImage: formattedProfileImage,
-        location: user.location,
-        age: user.age,
-        averageRating: user.averageRating,
-        totalRatings: user.totalRatings,
-        hobbySkillLevels: user.hobbySkillLevels || {},
-        isProfileComplete: user.isProfileComplete,
-        preferredLanguage: user.preferredLanguage || 'en'
+        location: userObj.location,
+        age: userObj.age,
+        averageRating: userObj.averageRating,
+        totalRatings: userObj.totalRatings,
+        hobbySkillLevels: userObj.hobbySkillLevels instanceof Map 
+          ? Object.fromEntries(userObj.hobbySkillLevels) 
+          : (userObj.hobbySkillLevels || {}),
+        isProfileComplete: userObj.isProfileComplete,
+        preferredLanguage: userObj.preferredLanguage || 'en'
       }
     });
 
