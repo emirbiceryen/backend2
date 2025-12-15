@@ -111,6 +111,11 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  hobbySkillLevels: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
   location: {
     type: String,
     maxlength: [100, 'Location cannot be more than 100 characters']

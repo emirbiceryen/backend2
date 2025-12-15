@@ -167,6 +167,21 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       
       updateData.hobbies = hobbiesArray;
     }
+
+    // Handle hobbySkillLevels if provided
+    if (req.body.hobbySkillLevels !== undefined) {
+      let skillLevels = req.body.hobbySkillLevels;
+      if (typeof skillLevels === 'string') {
+        try {
+          skillLevels = JSON.parse(skillLevels);
+        } catch (e) {
+          skillLevels = null;
+        }
+      }
+      if (skillLevels && typeof skillLevels === 'object') {
+        updateData.hobbySkillLevels = skillLevels;
+      }
+    }
     
     // Handle profile image upload
     if (req.file) {

@@ -48,7 +48,7 @@ router.put('/hobbies', auth, [
       });
     }
 
-    const { hobbies } = req.body;
+    const { hobbies, hobbySkillLevels } = req.body;
     const currentUser = req.user;
 
     // Check if user has active premium subscription
@@ -69,6 +69,9 @@ router.put('/hobbies', auth, [
     const updateData = { 
       hobbies
     };
+    if (hobbySkillLevels && typeof hobbySkillLevels === 'object') {
+      updateData.hobbySkillLevels = hobbySkillLevels;
+    }
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
