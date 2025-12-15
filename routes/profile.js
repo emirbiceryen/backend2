@@ -375,6 +375,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           age: user.age,
           averageRating: user.averageRating,
           totalRatings: user.totalRatings,
+          hobbySkillLevels: user.hobbySkillLevels || {},
           isProfileComplete: user.isProfileComplete,
           preferredLanguage: user.preferredLanguage || 'en'
         }
@@ -436,6 +437,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
         age: user.age,
         averageRating: user.averageRating,
         totalRatings: user.totalRatings,
+        hobbySkillLevels: user.hobbySkillLevels || {},
         isProfileComplete: user.isProfileComplete,
         preferredLanguage: user.preferredLanguage || 'en'
       }

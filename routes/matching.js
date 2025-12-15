@@ -116,10 +116,16 @@ router.get('/potential', auth, async (req, res) => {
         ? match.profileImage
         : null;
 
+      // Shared hobby skill level (take first shared hobby and other user's skill level if available)
+      const sharedHobbySkillLevel = (match.hobbySkillLevels && match.sharedHobbies && match.sharedHobbies.length > 0)
+        ? (match.hobbySkillLevels as any)[match.sharedHobbies[0]] || null
+        : null;
+
       return {
         ...match,
         profileImage: formattedProfileImage,
-        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId)
+        sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId),
+        sharedHobbySkillLevel
       };
     });
 
@@ -360,6 +366,15 @@ router.get('/pending', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
 
+      // Shared hobby skill level (use other user's skill level if available)
+      let sharedHobbySkillLevel = null;
+      if (sharedHobbyIds.length > 0 && otherUser.hobbySkillLevels) {
+        const firstShared = sharedHobbyIds[0];
+        sharedHobbySkillLevel = otherUser.hobbySkillLevels.get
+          ? otherUser.hobbySkillLevels.get(firstShared) || otherUser.hobbySkillLevels[firstShared]
+          : otherUser.hobbySkillLevels[firstShared];
+      }
+
       // Format profile image URL
       const formattedProfileImage = otherUser.profileImage 
         ? otherUser.profileImage
@@ -371,7 +386,9 @@ router.get('/pending', auth, async (req, res) => {
           ...otherUser.toObject(),
           profileImage: formattedProfileImage
         },
-        sharedHobbies: sharedHobbyNames,
+        sharedHobbies: sharedHobbyIds,
+        sharedHobbyNames,
+        sharedHobbySkillLevel,
         likedAt: match.createdAt
       };
     });
@@ -466,6 +483,15 @@ router.get('/matches', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
       
+      // Shared hobby skill level (use other user's skill level if available)
+      let sharedHobbySkillLevel = null;
+      if (sharedHobbyIds.length > 0 && otherUser.hobbySkillLevels) {
+        const firstShared = sharedHobbyIds[0];
+        sharedHobbySkillLevel = otherUser.hobbySkillLevels.get
+          ? otherUser.hobbySkillLevels.get(firstShared) || otherUser.hobbySkillLevels[firstShared]
+          : otherUser.hobbySkillLevels[firstShared];
+      }
+
       return {
         id: match._id,
         user: {
@@ -474,6 +500,7 @@ router.get('/matches', auth, async (req, res) => {
         },
         sharedHobbies: sharedHobbyIds,
         sharedHobbyNames: sharedHobbyNames,
+        sharedHobbySkillLevel,
         matchedAt: match.matchedAt || match.createdAt,
         lastInteraction: match.lastInteraction
       };
