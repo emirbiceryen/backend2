@@ -131,7 +131,7 @@ router.get('/potential', auth, async (req, res) => {
       }
 
       // Get additional interests names
-      const additionalInterestsNames = (match.additionalInterests || []).map((h: any) => {
+      const additionalInterestsNames = (match.additionalInterests || []).map((h) => {
         if (typeof h === 'object' && h.name) return h.name;
         const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
         return hobby ? hobby.name : h;
@@ -386,7 +386,7 @@ router.get('/pending', auth, async (req, res) => {
 
       // Get additional interests names
       const additionalInterests = otherUser.additionalInterests || [];
-      const additionalInterestsNames = additionalInterests.map((h: any) => {
+      const additionalInterestsNames = additionalInterests.map((h) => {
         if (typeof h === 'object' && h.name) return h.name;
         const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
         return hobby ? hobby.name : h;
@@ -513,7 +513,7 @@ router.get('/matches', auth, async (req, res) => {
       
       // Get additional interests names
       const additionalInterests = otherUser.additionalInterests || [];
-      const additionalInterestsNames = additionalInterests.map((h: any) => {
+      const additionalInterestsNames = additionalInterests.map((h) => {
         if (typeof h === 'object' && h.name) return h.name;
         const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
         return hobby ? hobby.name : h;
