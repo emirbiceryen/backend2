@@ -130,11 +130,20 @@ router.get('/potential', auth, async (req, res) => {
         }
       }
 
+      // Get additional interests names
+      const additionalInterestsNames = (match.additionalInterests || []).map((h: any) => {
+        if (typeof h === 'object' && h.name) return h.name;
+        const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
+        return hobby ? hobby.name : h;
+      });
+
       return {
         ...match,
         profileImage: formattedProfileImage,
         sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId),
-        sharedHobbySkillLevel
+        sharedHobbySkillLevel,
+        additionalInterests: match.additionalInterests || [],
+        additionalInterestsNames
       };
     });
 
@@ -319,8 +328,8 @@ router.get('/pending', auth, async (req, res) => {
       ],
       status: 'pending'
     })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies')
+    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests')
+    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests')
     .sort({ createdAt: -1 });
 
     console.log(`Found ${allMatches.length} pending matches for user ${req.user._id}`);
@@ -375,6 +384,14 @@ router.get('/pending', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
 
+      // Get additional interests names
+      const additionalInterests = otherUser.additionalInterests || [];
+      const additionalInterestsNames = additionalInterests.map((h: any) => {
+        if (typeof h === 'object' && h.name) return h.name;
+        const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
+        return hobby ? hobby.name : h;
+      });
+
       // Shared hobby skill level (use other user's skill level if available)
       let sharedHobbySkillLevel = null;
       if (sharedHobbyIds.length > 0 && otherUser.hobbySkillLevels) {
@@ -398,7 +415,9 @@ router.get('/pending', auth, async (req, res) => {
         sharedHobbies: sharedHobbyIds,
         sharedHobbyNames,
         sharedHobbySkillLevel,
-        likedAt: match.createdAt
+        likedAt: match.createdAt,
+        additionalInterests: additionalInterests,
+        additionalInterestsNames: additionalInterestsNames
       };
     });
 
@@ -439,8 +458,8 @@ router.get('/matches', auth, async (req, res) => {
       status: 'mutual',
       isActive: true
     })
-    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies')
-    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies')
+    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests')
+    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests')
     .sort({ matchedAt: -1 });
 
     // Get all hobby IDs from all matches (convert to strings)
@@ -492,6 +511,14 @@ router.get('/matches', auth, async (req, res) => {
       // Get hobby names
       const sharedHobbyNames = sharedHobbyIds.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId);
       
+      // Get additional interests names
+      const additionalInterests = otherUser.additionalInterests || [];
+      const additionalInterestsNames = additionalInterests.map((h: any) => {
+        if (typeof h === 'object' && h.name) return h.name;
+        const hobby = hobbies.find(ho => ho._id.toString() === h.toString());
+        return hobby ? hobby.name : h;
+      });
+      
       // Shared hobby skill level (use other user's skill level if available)
       let sharedHobbySkillLevel = null;
       if (sharedHobbyIds.length > 0 && otherUser.hobbySkillLevels) {
@@ -511,7 +538,9 @@ router.get('/matches', auth, async (req, res) => {
         sharedHobbyNames: sharedHobbyNames,
         sharedHobbySkillLevel,
         matchedAt: match.matchedAt || match.createdAt,
-        lastInteraction: match.lastInteraction
+        lastInteraction: match.lastInteraction,
+        additionalInterests: additionalInterests,
+        additionalInterestsNames: additionalInterestsNames
       };
     }).filter(match => match !== null);
 

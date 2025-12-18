@@ -167,6 +167,25 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       
       updateData.hobbies = hobbiesArray;
     }
+    
+    if (req.body.additionalInterests !== undefined) {
+      let additionalInterestsArray = req.body.additionalInterests;
+      if (typeof additionalInterestsArray === 'string') {
+        try {
+          additionalInterestsArray = JSON.parse(additionalInterestsArray);
+          if (!Array.isArray(additionalInterestsArray)) {
+            additionalInterestsArray = [additionalInterestsArray];
+          }
+        } catch (e) {
+          additionalInterestsArray = [additionalInterestsArray];
+        }
+      } else if (Array.isArray(additionalInterestsArray)) {
+        additionalInterestsArray = additionalInterestsArray;
+      } else {
+        additionalInterestsArray = [];
+      }
+      updateData.additionalInterests = additionalInterestsArray;
+    }
 
     // Handle hobbySkillLevels if provided
     if (req.body.hobbySkillLevels !== undefined) {
@@ -342,7 +361,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
     // If no data to update, return current user
     if (Object.keys(updateData).length === 0) {
       const user = await User.findById(req.user._id)
-        .populate('hobbies', 'name description icon');
+        .populate('hobbies', 'name description icon')
+        .populate('additionalInterests', 'name description icon');
       
       if (!user) {
         return res.status(404).json({ 
@@ -370,6 +390,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
           bio: user.bio,
           skills: user.skills,
           hobbies: user.hobbies,
+          additionalInterests: user.additionalInterests || [],
           profileImage: formattedProfileImage,
           location: user.location,
           age: user.age,
@@ -390,7 +411,8 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
       req.user._id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('hobbies', 'name description icon');
+    ).populate('hobbies', 'name description icon')
+     .populate('additionalInterests', 'name description icon');
     } catch (validationError) {
       console.error('Validation error:', validationError);
       console.error('Validation error details:', validationError.message);
@@ -435,6 +457,7 @@ router.put('/me', auth, upload.single('profileImage'), async (req, res) => {
         bio: userObj.bio,
         skills: userObj.skills,
         hobbies: userObj.hobbies,
+        additionalInterests: userObj.additionalInterests || [],
         profileImage: formattedProfileImage,
         location: userObj.location,
         age: userObj.age,

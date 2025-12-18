@@ -78,6 +78,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     ref: 'Hobby'
   }],
+  additionalInterests: [{
+    type: String,
+    ref: 'Hobby'
+  }],
   firstName: {
     type: String,
     trim: true,
