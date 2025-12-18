@@ -10,7 +10,8 @@ const firebaseUploadService = require('../utils/firebaseUploadService');
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
-      .populate('hobbies', 'name description icon');
+      .populate('hobbies', 'name description icon')
+      .populate('additionalInterests', 'name description icon');
 
     if (!user) {
       return res.status(404).json({ 
@@ -33,6 +34,7 @@ router.get('/me', auth, async (req, res) => {
         bio: user.bio,
         skills: user.skills,
         hobbies: user.hobbies,
+        additionalInterests: user.additionalInterests || [],
         profileImage: formattedProfileImage,
         location: user.location,
         age: user.age,
