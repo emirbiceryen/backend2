@@ -50,7 +50,8 @@ router.get('/potential', auth, async (req, res) => {
       hobbies: { $exists: true, $ne: [] }
     })
     .populate('hobbies', '_id name')
-    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings')
+    .populate('additionalInterests', '_id name')
+    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings additionalInterests hobbySkillLevels')
     .limit(10);
 
     console.log('=== MATCHING DEBUG ===');
@@ -95,8 +96,13 @@ router.get('/potential', auth, async (req, res) => {
       .filter(match => match.sharedHobbyCount > 0)
       .sort((a, b) => b.sharedHobbyCount - a.sharedHobbyCount);
 
-    // Fetch hobby names for all shared hobby IDs
-    const allHobbyIds = [...new Set(matchesWithSharedHobbies.flatMap(match => match.sharedHobbies))];
+    // Fetch hobby names for all shared hobby IDs and additional interests
+    const allSharedHobbyIds = [...new Set(matchesWithSharedHobbies.flatMap(match => match.sharedHobbies))];
+    const allAdditionalInterestIds = [...new Set(matchesWithSharedHobbies.flatMap(match => {
+      const interests = match.additionalInterests || [];
+      return interests.map(h => typeof h === 'object' && h._id ? h._id.toString() : h.toString());
+    }))];
+    const allHobbyIds = [...new Set([...allSharedHobbyIds, ...allAdditionalInterestIds])];
     console.log('All hobby IDs to fetch:', allHobbyIds);
     const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name');
     console.log('Fetched hobbies:', hobbies);
