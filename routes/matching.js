@@ -96,7 +96,7 @@ router.get('/potential', auth, async (req, res) => {
       .filter(match => match.sharedHobbyCount > 0)
       .sort((a, b) => b.sharedHobbyCount - a.sharedHobbyCount);
 
-    // Fetch hobby names for all shared hobby IDs and additional interests
+    // Fetch hobby names and icons for all shared hobby IDs and additional interests
     const allSharedHobbyIds = [...new Set(matchesWithSharedHobbies.flatMap(match => match.sharedHobbies))];
     const allAdditionalInterestIds = [...new Set(matchesWithSharedHobbies.flatMap(match => {
       const interests = match.additionalInterests || [];
@@ -104,11 +104,13 @@ router.get('/potential', auth, async (req, res) => {
     }))];
     const allHobbyIds = [...new Set([...allSharedHobbyIds, ...allAdditionalInterestIds])];
     console.log('All hobby IDs to fetch:', allHobbyIds);
-    const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name');
+    const hobbies = await Hobby.find({ _id: { $in: allHobbyIds } }).select('name icon');
     console.log('Fetched hobbies:', hobbies);
     const hobbyMap = {};
+    const hobbyIconMap = {};
     hobbies.forEach(hobby => {
       hobbyMap[hobby._id.toString()] = hobby.name;
+      hobbyIconMap[hobby._id.toString()] = hobby.icon || '🎯';
     });
     console.log('Hobby map created:', hobbyMap);
 
@@ -143,10 +145,18 @@ router.get('/potential', auth, async (req, res) => {
         return hobby ? hobby.name : h;
       });
 
+      // Get first shared hobby info (name and icon)
+      const firstSharedHobbyId = match.sharedHobbies && match.sharedHobbies.length > 0 ? match.sharedHobbies[0] : null;
+      const firstSharedHobbyName = firstSharedHobbyId ? (hobbyMap[firstSharedHobbyId.toString()] || firstSharedHobbyId) : null;
+      const firstSharedHobbyIcon = firstSharedHobbyId ? (hobbyIconMap[firstSharedHobbyId.toString()] || '🎯') : null;
+
       return {
         ...match,
         profileImage: formattedProfileImage,
         sharedHobbyNames: match.sharedHobbies.map(hobbyId => hobbyMap[hobbyId.toString()] || hobbyId),
+        sharedHobbyIcons: match.sharedHobbies.map(hobbyId => hobbyIconMap[hobbyId.toString()] || '🎯'),
+        firstSharedHobbyName,
+        firstSharedHobbyIcon,
         sharedHobbySkillLevel,
         additionalInterests: match.additionalInterests || [],
         additionalInterestsNames
