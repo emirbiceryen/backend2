@@ -503,27 +503,40 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.put('/equipment', auth, async (req, res) => {
   try {
+    console.log('=== EQUIPMENT UPDATE DEBUG ===');
+    console.log('Request body:', req.body);
+    console.log('User ID:', req.user._id);
+    
     const { equipment } = req.body;
+    console.log('Equipment received:', equipment);
+    console.log('Equipment type:', typeof equipment);
+    console.log('Is array:', Array.isArray(equipment));
     
     if (!Array.isArray(equipment)) {
+      console.log('Equipment is not an array, returning error');
       return res.status(400).json({
         success: false,
         message: 'Equipment must be an array'
       });
     }
 
+    console.log('Updating user equipment in database...');
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { equipment: equipment },
-      { new: true }
+      { new: true, runValidators: true }
     ).select('equipment');
 
     if (!user) {
+      console.log('User not found');
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
+
+    console.log('User equipment after update:', user.equipment);
+    console.log('Equipment saved successfully');
 
     res.json({
       success: true,
@@ -531,6 +544,7 @@ router.put('/equipment', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating user equipment:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Error updating user equipment'
