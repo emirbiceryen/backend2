@@ -620,6 +620,35 @@ router.get('/:userId/gallery', auth, async (req, res) => {
 // @access  Private
 router.put('/gallery', auth, upload.array('images', 10), async (req, res) => {
   try {
+    // Get current user to check existing gallery
+    const currentUser = await User.findById(req.user._id).select('gallery');
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Get existing gallery from user - ensure it's an array
+    let existingGallery = [];
+    if (currentUser.gallery) {
+      if (Array.isArray(currentUser.gallery)) {
+        existingGallery = currentUser.gallery;
+      } else if (typeof currentUser.gallery === 'string') {
+        try {
+          existingGallery = JSON.parse(currentUser.gallery);
+          if (!Array.isArray(existingGallery)) {
+            existingGallery = [existingGallery];
+          }
+        } catch (e) {
+          existingGallery = [currentUser.gallery];
+        }
+      } else {
+        existingGallery = [];
+      }
+    }
+
+    // Get gallery from request body
     let gallery = req.body.gallery;
     
     // If gallery is a string, try to parse it
@@ -627,12 +656,13 @@ router.put('/gallery', auth, upload.array('images', 10), async (req, res) => {
       try {
         gallery = JSON.parse(gallery);
       } catch (e) {
-        gallery = [];
+        gallery = existingGallery; // Use existing gallery if parsing fails
       }
     }
     
-    if (!Array.isArray(gallery)) {
-      gallery = [];
+    // If gallery is not provided or not an array, use existing gallery
+    if (!gallery || !Array.isArray(gallery)) {
+      gallery = existingGallery;
     }
 
     // Upload new images from files to Firebase
@@ -658,12 +688,12 @@ router.put('/gallery', auth, upload.array('images', 10), async (req, res) => {
 
     // Combine existing gallery URLs (already uploaded) with newly uploaded images
     // Filter out any local URIs (file://) and keep only Firebase URLs
-    const existingGallery = gallery.filter(url => 
+    const validExistingGallery = Array.isArray(gallery) ? gallery.filter(url => 
       typeof url === 'string' && 
       (url.startsWith('http') || url.startsWith('https'))
-    );
+    ) : [];
     
-    const finalGallery = [...existingGallery, ...uploadedImages];
+    const finalGallery = [...validExistingGallery, ...uploadedImages];
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -679,7 +709,19 @@ router.put('/gallery', auth, upload.array('images', 10), async (req, res) => {
     }
 
     // Combine profile image and gallery - ensure gallery is an array
-    const userGallery = Array.isArray(user.gallery) ? user.gallery : (user.gallery ? [user.gallery] : []);
+    let userGallery = [];
+    if (user.gallery) {
+      if (Array.isArray(user.gallery)) {
+        userGallery = user.gallery;
+      } else if (typeof user.gallery === 'string') {
+        try {
+          const parsed = JSON.parse(user.gallery);
+          userGallery = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) {
+          userGallery = [user.gallery];
+        }
+      }
+    }
     const allImages = [user.profileImage, ...userGallery].filter(Boolean);
 
     res.json({
