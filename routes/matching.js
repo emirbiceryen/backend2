@@ -51,7 +51,7 @@ router.get('/potential', auth, async (req, res) => {
     })
     .populate('hobbies', '_id name')
     .populate('additionalInterests', '_id name')
-    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings additionalInterests hobbySkillLevels')
+    .select('firstName lastName name bio location age hobbies profileImage averageRating totalRatings additionalInterests hobbySkillLevels equipment')
     .limit(10);
 
     console.log('=== MATCHING DEBUG ===');
@@ -159,7 +159,8 @@ router.get('/potential', auth, async (req, res) => {
         firstSharedHobbyIcon,
         sharedHobbySkillLevel,
         additionalInterests: match.additionalInterests || [],
-        additionalInterestsNames
+        additionalInterestsNames,
+        equipment: match.equipment || []
       };
     });
 
@@ -426,7 +427,8 @@ router.get('/pending', auth, async (req, res) => {
         id: match._id,
         user: {
           ...otherUser.toObject(),
-          profileImage: formattedProfileImage
+          profileImage: formattedProfileImage,
+          equipment: otherUser.equipment || []
         },
         sharedHobbies: sharedHobbyIds,
         sharedHobbyNames,
@@ -474,8 +476,8 @@ router.get('/matches', auth, async (req, res) => {
       status: 'mutual',
       isActive: true
     })
-    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests')
-    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests')
+    .populate('user1', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests equipment')
+    .populate('user2', 'firstName lastName name username profileImage bio age location averageRating totalRatings hobbies additionalInterests equipment')
     .sort({ matchedAt: -1 });
 
     // Get all hobby IDs from all matches (convert to strings)
