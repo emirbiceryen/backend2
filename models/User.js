@@ -101,6 +101,11 @@ const userSchema = new mongoose.Schema({
     trim: true,
     maxlength: [50, 'Skill cannot be more than 50 characters']
   }],
+  equipment: [{
+    type: String,
+    trim: true,
+    maxlength: [100, 'Equipment name cannot be more than 100 characters']
+  }],
   profileImage: {
     type: String,
     default: null
