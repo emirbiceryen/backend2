@@ -345,8 +345,8 @@ router.get('/pending', auth, async (req, res) => {
       ],
       status: 'pending'
     })
-    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests')
-    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests')
+    .populate('user1', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests equipment')
+    .populate('user2', 'firstName lastName name bio location age profileImage averageRating totalRatings hobbies additionalInterests equipment')
     .sort({ createdAt: -1 });
 
     console.log(`Found ${allMatches.length} pending matches for user ${req.user._id}`);
@@ -550,7 +550,8 @@ router.get('/matches', auth, async (req, res) => {
         id: match._id,
         user: {
           ...otherUser.toObject(),
-          profileImage: formattedProfileImage
+          profileImage: formattedProfileImage,
+          equipment: otherUser.equipment || []
         },
         sharedHobbies: sharedHobbyIds,
         sharedHobbyNames: sharedHobbyNames,
