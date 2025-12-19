@@ -79,6 +79,7 @@ router.get('/user/:userId', async (req, res) => {
         lastName: user.lastName,
         bio: user.bio,
         skills: user.skills,
+        equipment: user.equipment || [],
         hobbies: user.hobbies,
         profileImage: formattedProfileImage,
         location: user.location,
