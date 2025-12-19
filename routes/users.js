@@ -2,8 +2,19 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const multer = require('multer');
+const firebaseUploadService = require('../utils/firebaseUploadService');
 
 const router = express.Router();
+
+// Configure multer with memory storage for Firebase uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
 
 // Helper function to get notification title
 const getNotificationTitle = (type) => {
@@ -607,20 +618,56 @@ router.get('/:userId/gallery', auth, async (req, res) => {
 // @route   PUT /api/users/gallery
 // @desc    Update user gallery
 // @access  Private
-router.put('/gallery', auth, async (req, res) => {
+router.put('/gallery', auth, upload.array('images', 10), async (req, res) => {
   try {
-    const { gallery } = req.body;
+    let gallery = req.body.gallery;
+    
+    // If gallery is a string, try to parse it
+    if (typeof gallery === 'string') {
+      try {
+        gallery = JSON.parse(gallery);
+      } catch (e) {
+        gallery = [];
+      }
+    }
     
     if (!Array.isArray(gallery)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Gallery must be an array'
-      });
+      gallery = [];
     }
+
+    // Upload new images from files to Firebase
+    const uploadedImages = [];
+    if (req.files && req.files.length > 0) {
+      if (!firebaseUploadService.isInitialized()) {
+        return res.status(500).json({
+          success: false,
+          message: 'File upload service is not configured'
+        });
+      }
+
+      for (const file of req.files) {
+        try {
+          const imageUrl = await firebaseUploadService.uploadFile(file, 'gallery');
+          uploadedImages.push(imageUrl);
+        } catch (uploadError) {
+          console.error('Error uploading gallery image to Firebase:', uploadError);
+          // Continue with other images even if one fails
+        }
+      }
+    }
+
+    // Combine existing gallery URLs (already uploaded) with newly uploaded images
+    // Filter out any local URIs (file://) and keep only Firebase URLs
+    const existingGallery = gallery.filter(url => 
+      typeof url === 'string' && 
+      (url.startsWith('http') || url.startsWith('https'))
+    );
+    
+    const finalGallery = [...existingGallery, ...uploadedImages];
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { gallery: gallery },
+      { gallery: finalGallery },
       { new: true }
     ).select('gallery profileImage');
 
@@ -631,8 +678,9 @@ router.put('/gallery', auth, async (req, res) => {
       });
     }
 
-    // Combine profile image and gallery
-    const allImages = [user.profileImage, ...user.gallery].filter(Boolean);
+    // Combine profile image and gallery - ensure gallery is an array
+    const userGallery = Array.isArray(user.gallery) ? user.gallery : (user.gallery ? [user.gallery] : []);
+    const allImages = [user.profileImage, ...userGallery].filter(Boolean);
 
     res.json({
       success: true,
