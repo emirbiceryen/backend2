@@ -33,6 +33,7 @@ router.get('/me', auth, async (req, res) => {
         username: user.username,
         bio: user.bio,
         skills: user.skills,
+        equipment: user.equipment || [],
         hobbies: user.hobbies,
         additionalInterests: user.additionalInterests || [],
         profileImage: formattedProfileImage,
